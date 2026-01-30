@@ -1,0 +1,26 @@
+# --- Web Framework & Server ---
+fastapi[all]>=0.110.0      # Web framework (includes pydantic, starlette)
+uvicorn[standard]>=0.27.0  # ASGI server for FastAPI
+python-multipart>=0.0.9    # Mandatory for handling file/video uploads
+
+# --- Database & Migrations ---
+sqlalchemy>=2.0.0          # ORM for PostgreSQL
+psycopg2-binary>=2.9.9     # PostgreSQL database driver
+alembic>=1.13.0            # Database migration tool (standard for MCA projects)
+
+# --- Media Processing ---
+yt-dlp>=2024.3.10          # The best YouTube video/audio downloader
+moviepy>=1.0.3             # Video editing, audio extraction, and clipping
+ffmpeg-python>=0.2.0       # Python wrapper for FFmpeg commands
+librosa>=0.10.1            # Audio analysis (if you need waveforms/normalization)
+
+# --- AI & Machine Learning (CPU Optimized) ---
+faster-whisper>=1.0.1      # 4x faster than OpenAI Whisper on your Ryzen CPU
+ollama>=0.1.7              # Python client to talk to local Llama 3.1
+sentence-transformers>=2.5.1 # For creating "embeddings" if you add search features
+langchain>=0.1.0           # Framework to chain AI tasks together (Summarizer)
+
+# --- Utilities ---
+python-dotenv>=1.0.1       # To hide your DB credentials in a .env file
+requests>=2.31.0           # For calling n8n webhooks or external APIs
+aiofiles>=23.2.1           # Asynchronous file handling (crucial for videos)
