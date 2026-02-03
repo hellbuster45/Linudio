@@ -1,5 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks
-from .services import yt_downloader, get_metadata
+from .services import downloader, get_metadata
 from .schemas import YoutubeVideo
 
 router = APIRouter(prefix="/videos", tags=["Video Management"])
@@ -16,7 +16,7 @@ def health():
 def get_video(request: YoutubeVideo, bg_task: BackgroundTasks):
     metadata = get_metadata(request.url)
 
-    bg_task.add_task(yt_downloader, request.url)
+    bg_task.add_task(downloader, request.url)
     return {
         "message": "Download Started..",
         "metadata": metadata
