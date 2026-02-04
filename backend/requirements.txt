@@ -10,7 +10,7 @@ psycopg2-binary>=2.9.9     # PostgreSQL database driver
 alembic>=1.13.0            # Database migration tool (standard for MCA projects)
 
 # --- Media Processing ---
-yt-dlp>=2024.3.10          # The best YouTube video/audio downloader
+yt-dlp[default]>=2024.3.10          # The best YouTube video/audio downloader
 moviepy>=1.0.3             # Video editing, audio extraction, and clipping
 ffmpeg-python>=0.2.0       # Python wrapper for FFmpeg commands
 librosa>=0.10.1            # Audio analysis (if you need waveforms/normalization)
