@@ -16,6 +16,7 @@ ffmpeg-python>=0.2.0       # Python wrapper for FFmpeg commands
 librosa>=0.10.1            # Audio analysis (if you need waveforms/normalization)
 
 # --- AI & Machine Learning (CPU Optimized) ---
+whisper
 faster-whisper>=1.0.1      # 4x faster than OpenAI Whisper on your Ryzen CPU
 ollama>=0.1.7              # Python client to talk to local Llama 3.1
 sentence-transformers>=2.5.1 # For creating "embeddings" if you add search features
