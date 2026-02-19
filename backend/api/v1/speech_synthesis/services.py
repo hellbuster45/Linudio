@@ -6,7 +6,6 @@ model = whisper.load_model("base", device="cpu")
 def transcribe_audio(file_path: str):
     if not os.path.exists(file_path):
         return {"error": "FILE NOT FOUND !!"}
-    
     try:
         print("\n\nTranscription Started !!\n\n")
         start_time = time.time()
