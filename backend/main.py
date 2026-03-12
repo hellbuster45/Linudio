@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from api.v1.videos.routes import router as video_router
-from api.v1.speech_synthesis.routes import router as synthesize_router
+from api.v1.stt.routes import router as synthesize_router
 
 app = FastAPI()
 

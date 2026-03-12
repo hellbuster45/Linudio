@@ -22,42 +22,46 @@ def downloader(url: str):
             'quiet': True,
         }
 
-        with YoutubeDL(ydl_opts) as ydl: # download video and return required metadata, along with file path
+        with YoutubeDL(ydl_opts) as ydl: # download audio, return file path
             info = ydl.extract_info(url, download=True)
             file_path = ydl.prepare_filename(info).replace('.webm', '.wav').replace('.m4a', '.wav')
             return { 
                 "file_path": file_path,
-                "title": info.get("title"),
-                "thumbnail": info.get("thumbnail"),
-                "duration": info.get("duration"),
-                "upload_date": info.get("upload_date"),
-                "resolution": info.get("resolution"),
-                "fps": info.get("fps")
             }
     except Exception as e:
-        return {"error": str(e)}
-
+        print(f"Downloader Error: {str(e)}")
+        print(f"Metadata fetched: {info}")
+        return {
+            'location' : 'HELPERS',
+            'error'    : str(e)
+        }
 
 def get_metadata(url: str):
-    options = {
-        "quiet": True,
-        "js-runtime": {"node": {}}
-    }
-    
-    with YoutubeDL(options) as ydl:
-        info = ydl.extract_info(url=url, download=False)
-    
-    print(info.keys())
-    
-    return {
-        "video_id": extract_youtube_id(url),
-        "title": info.get("title"),
-        "thumbnail": info.get("thumbnail"),
-        "duration": info.get("duration"),
-        "upload_date": info.get("upload_date"),
-        "resolution": info.get("resolution"),
-        "fps": info.get("fps")
-    }
+    try:
+        options = {
+            "quiet": True,
+            "js-runtime": {"node": {}}
+        }
+        
+        with YoutubeDL(options) as ydl:
+            print(f"Fetching metadata for URL: {url}")
+            info = ydl.extract_info(url=url, download=False)
+        
+        return {
+            "video_id"    : extract_youtube_id(url),
+            "title"       : info.get("title"),
+            "thumbnail"   : info.get("thumbnail"),
+            "duration"    : info.get("duration"),
+            "upload_date" : info.get("upload_date"),
+            "resolution"  : info.get("resolution"),
+            "fps"         : info.get("fps")
+        }
+    except Exception as e:
+        print(f"Metadata Error: {str(e)}")
+        return {
+            'location': 'HELPERS-METADATA',
+            'error': str(e)
+        }
 
 def extract_youtube_id(url: str) -> str | None:
     reg_exp = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')

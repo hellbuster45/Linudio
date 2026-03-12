@@ -13,4 +13,4 @@ def transcribe(request: Speech_Synthesis):
     path = request.file_path
     response = transcribe_audio(path)
 
-    return {"result": response}
+    return response

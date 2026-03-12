@@ -7,10 +7,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
+    print("Entering get_db function")
     db = SessionLocal()
     try:
+        print("Yielding database session")
         yield db
-    except:
-        return {"message" : "DB ERROR"}
+    except Exception as e:
+        raise e
     finally:
+        print("Exiting get_db function")
         db.close()
