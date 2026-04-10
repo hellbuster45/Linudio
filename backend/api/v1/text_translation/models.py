@@ -1,0 +1,1 @@
+from ..stt.models import Transcripts

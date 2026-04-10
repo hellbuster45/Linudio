@@ -22,14 +22,13 @@ async def get_yt_video(video_data: YoutubeVideo, bg_task: BackgroundTasks, db: S
         metadata = get_metadata(video_data.url)
 
         bg_task.add_task(get_video, video_data.url, db, metadata)
-        
+
         return {
             "message": "Download Started..",
             "metadata": metadata
         }
     except Exception as e:
-        raise e
-        # return {
-        #     'location' : 'ROUTES',
-        #     'error'    : str(e)
-        # }
+        return {
+            'location' : 'VIDEOS_ROUTES',
+            'error'    : str(e)
+        }

@@ -22,7 +22,9 @@ async def get_video(video_url, db, metadata):
                 'location' : 'VIDEOS-SERVICES',
                 'error'    : f"Database Insert Failed => {str(e)}"
             }
-        
+        finally:
+            db.close()
+            
     except Exception as e:
         return {
             'location' : 'VIDEOS-SERVICES',

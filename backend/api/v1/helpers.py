@@ -29,8 +29,6 @@ def downloader(url: str):
                 "file_path": file_path,
             }
     except Exception as e:
-        print(f"Downloader Error: {str(e)}")
-        print(f"Metadata fetched: {info}")
         return {
             'location' : 'HELPERS',
             'error'    : str(e)
