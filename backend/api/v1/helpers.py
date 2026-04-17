@@ -10,6 +10,13 @@ def downloader(url: str):
         
         ydl_opts = {
             'format': 'bestaudio/best',
+            "javascript_runtimes": ['deno'],
+            # 'js_runtimes': ['node'],
+            'remote_components': ['ejs:github'],
+            'enable_ejs': True,
+            'cookiefile': 'storage/cookies.txt', # We won't use a file, we'll use the browser
+            'nocheckcertificate': True,
+            'no_warnings': False,
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'wav',      # WAV is uncompressed and faster to read
@@ -20,6 +27,7 @@ def downloader(url: str):
             ],
             'outtmpl': f'storage/audio/%(id)s.%(ext)s',
             'quiet': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
 
         with YoutubeDL(ydl_opts) as ydl: # download audio, return file path
