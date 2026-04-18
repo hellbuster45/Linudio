@@ -17,6 +17,7 @@ def transcribe_audio(video_id, db):
     if existing:
         print("existing found")
         return {
+            "src_lang": existing.src_lang,
             "text": existing.original_transcript
         }
     
@@ -50,12 +51,15 @@ def transcribe_audio(video_id, db):
         try:
             transcript_row = Transcripts(
                 video_id = video_id,
+                src_lang = info.language,
                 original_transcript = json.dumps(result)
             )
-            print("row made")
             db.add(transcript_row)
+            print("row made")
+            
             db.commit()
             print("commit")
+            
             db.refresh(transcript_row)
             print("refersh")
         except SQLAlchemyError as e:
