@@ -1,5 +1,7 @@
 from .models import Transcripts
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from sqlalchemy.exc import SQLAlchemyError
+from .models import Transcripts
 import torch
 
 model_name = "facebook/nllb-200-distilled-600M"
@@ -9,7 +11,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 device = torch.device("cpu")
 model = model.to(device)
 
-async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn", tgt_lang="fra_Latn"):
+async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn", tgt_lang="hin_Deva"):
     try:
         text_input = [item['text'] for item in text] # Array of strings from text transcript dict
 
@@ -25,15 +27,15 @@ async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn"
 
         # Generate Translation
         with torch.no_grad():
-            translated_tokens = model.generate(
+            translated_tokens = model.generate (
                 **inputs,
                 forced_bos_token_id = tokenizer.convert_tokens_to_ids(tgt_lang),
                 max_length = 512,
                 num_beams = 4,
                 early_stopping = True
             )
-        
-        translated_texts = tokenizer.batch_decode(
+
+        translated_texts = tokenizer.batch_decode (
             translated_tokens,
             skip_special_tokens = True
         )
@@ -45,9 +47,24 @@ async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn"
         else:
             translated_result = translated_texts
 
+        for i, item in enumerate(text):
+            item['text'] = translated_result[i]
+
+        row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
+        row.translated_transcript = text
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+
         return {
             "message": "success",
-            "translated_text": translated_result
+            "translated_text": text
+        }
+    except SQLAlchemyError as e:
+        return {
+            "status": "error",
+            "location": "TRANSLATION_SERVICE",
+            "error": str(e)
         }
     except Exception as e:
         return {

@@ -22,23 +22,29 @@ def transcribe_audio(video_id, db):
         }
     
     video_row = db.query(Videos).filter(Videos.video_id == video_id).first()
-    file_path = video_row.audio_path
-    print(file_path)
+    
+    # Use the base_path stored in your audio_path column
+    folder_path = video_row.audio_path 
+    
+    # Construct the path to the mono file inside that stored folder
+    mono_file = os.path.join(folder_path, f"{video_id}_mono.wav")
+    print(f"Targeting: {mono_file}")
 
-    if not os.path.exists(file_path):
+    if not os.path.exists(mono_file):
         return {
             'location' : 'TRANSCRIPTION',
-            'error': "FILE NOT FOUND !!"
+            'error': f"FILE NOT FOUND AT {mono_file}!!"
         }
     
     try:
         print("\n\nTranscription Started !!\n\n")
         start_time = time.time()
         
-        segments, info = model.transcribe(file_path, beam_size=5) # get transcription text segments
+        # Whisper processes the mono file found in your stored audio_path
+        segments, info = model.transcribe(mono_file, beam_size=5) 
         
         result = []
-        for segment in segments: # list of dictionaries, containing timestamps and text for each segment
+        for segment in segments: 
             result.append({
                 'id'         : segment.id,
                 'start_time' : segment.start,
@@ -61,20 +67,18 @@ def transcribe_audio(video_id, db):
             print("commit")
             
             db.refresh(transcript_row)
-            print("refersh")
+            print("refresh")
         except SQLAlchemyError as e:
             db.rollback()
             return {
                 'location' : 'STT-SERVICES',
                 'error'    : str(e)
             }
-        finally:
-            db.close()
 
         print("\n\n Time Taken: ", end_time-start_time)
         print("\n\n")
 
-        return { # return detected language, probablity of correct language detection, and the segments
+        return { 
             'language'            : info.language,
             'language_probablity' : info.language_probability,
             'segments'            : result

@@ -1,46 +1,121 @@
 from pathlib import Path
 from yt_dlp import YoutubeDL
-import os, re
+import os, re, asyncio, shutil,sys, traceback
 
-def downloader(url: str):
-    try: 
-        save_path = Path(__file__).resolve().parents[4] / "storage"
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+async def downloader(url: str, video_id: str):
+    try:
+        # Create Path for each video storage/{video_id}
+        base_path = os.path.join("storage", video_id)
+        os.makedirs(base_path, exist_ok=True)
+
+        master_video = os.path.join(base_path, f"{video_id}_video.mp4")
+        stereo_audio = os.path.join(base_path, f"{video_id}_stereo.wav")
+        mono_audio   = os.path.join(base_path, f"{video_id}_mono.wav")
         
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'quiet': True,
+            'outtmpl': master_video,
             "javascript_runtimes": ['deno'],
-            # 'js_runtimes': ['node'],
             'remote_components': ['ejs:github'],
+
             'enable_ejs': True,
-            'cookiefile': 'storage/cookies.txt', # We won't use a file, we'll use the browser
+            'cookiefile': 'storage/cookies.txt',
             'nocheckcertificate': True,
             'no_warnings': False,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'wav',      # WAV is uncompressed and faster to read
-            }],
-            'postprocessor_args': [
-                '-ar', '16000',               # Audio Rate: 16kHz
-                '-ac', '1'                    # Audio Channels: 1 (Mono)
-            ],
-            'outtmpl': f'storage/audio/%(id)s.%(ext)s',
-            'quiet': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'no_playlist': True,
         }
 
         with YoutubeDL(ydl_opts) as ydl: # download audio, return file path
-            info = ydl.extract_info(url, download=True)
-            file_path = ydl.prepare_filename(info).replace('.webm', '.wav').replace('.m4a', '.wav')
-            return { 
-                "file_path": file_path,
+            ydl.download([url])
+        
+        ffmpeg_cmd = [
+            'ffmpeg', '-y', '-i', master_video,
+            '-map', '0:a:0', '-ac', '2', '-ar', '44100', stereo_audio,
+            '-map', '0:a:0', '-ac', '1', '-ar', '16000', mono_audio,
+        ]
+
+        result = await run_ffmpeg(ffmpeg_cmd, "Audio-Split")
+
+        if result == 0:
+            if os.path.exists(stereo_audio) and os.path.exists(mono_audio):
+                return {
+                    'folder': base_path,
+                    'files': {
+                        'video': master_video,
+                        'stereo': stereo_audio,
+                        'mono': mono_audio,
+                    },
+                }
+        else:
+            return {
+                "status": "error",
+                "location": "HELPERS",
+                "error": "FFMpeg failed to create required files"
             }
     except Exception as e:
         return {
             'location' : 'HELPERS',
             'error'    : str(e)
         }
+
+async def run_ffmpeg(cmd_list, task_name="FFMpeg"):
+    try:
+        # 1. Verify FFmpeg exists
+        ffmpeg_exe = shutil.which("ffmpeg")
+        if not ffmpeg_exe:
+            print(f"[{task_name}] ERROR: ffmpeg.exe not found in PATH.")
+            return -1
+
+        # 2. Build the command string properly
+        # We wrap paths in quotes to handle Windows spaces
+        formatted_args = []
+        for arg in cmd_list:
+            arg_str = str(arg)
+            if " " in arg_str or "\\" in arg_str:
+                formatted_args.append(f'"{arg_str}"')
+            else:
+                formatted_args.append(arg_str)
+        
+        cmd_str = " ".join(formatted_args)
+        
+        print(f"--- Executing: {cmd_str} ---")
+
+        # 3. Create the subprocess
+        # Pass ONLY the string as the first argument, others as keywords
+        process = await asyncio.create_subprocess_shell(
+            cmd_str,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        print(f"--- Subprocess Created (PID: {process.pid}) ---")
+
+        # 4. Monitor stderr (where FFmpeg output lives)
+        async def stream_logs(stream):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                # Use replace to handle Windows console encoding issues
+                print(f"[{task_name}] {line.decode('utf-8', errors='replace').strip()}")
+
+        # Run logging and wait for exit
+        await asyncio.gather(
+            stream_logs(process.stderr),
+            process.wait()
+        )
+
+        return process.returncode
+
+    except Exception:
+        print(f"CRITICAL ERROR in {task_name}:")
+        print(traceback.format_exc())
+        return -1
 
 def get_metadata(url: str):
     try:
