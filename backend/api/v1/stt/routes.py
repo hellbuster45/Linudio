@@ -4,7 +4,7 @@ from .schemas import Speech_Synthesis
 from .services import transcribe_audio
 from database import get_db
 
-router = APIRouter(prefix="/synthesize", tags=["Speech Synthesis"])
+router = APIRouter(prefix="/synthesize", tags=["STT"])
 
 @router.get("/")
 @router.get("/health")
