@@ -2,7 +2,7 @@ from .models import Transcripts
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from sqlalchemy.exc import SQLAlchemyError
 from .models import Transcripts
-import torch
+import torch, json
 
 model_name = "facebook/nllb-200-distilled-600M"
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
@@ -13,8 +13,11 @@ model = model.to(device)
 
 async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn", tgt_lang="hin_Deva"):
     try:
-        text_input = [item['text'] for item in text] # Array of strings from text transcript dict
-
+        text_input = [] # Array of strings from text transcript dict
+        for items in text:
+            text_input.append(items.get('text'))
+        
+        print("TEXT_INPUT: ", text_input)
         inputs = tokenizer(
             text_input,
             return_tensors = "pt",
@@ -52,6 +55,7 @@ async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn"
 
         row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
         row.translated_transcript = text
+        row.tgt_lang = tgt_lang
         db.add(row)
         db.commit()
         db.refresh(row)
@@ -62,7 +66,7 @@ async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn"
         }
     except SQLAlchemyError as e:
         return {
-            "status": "error",
+            "status": "sql_error",
             "location": "TRANSLATION_SERVICE",
             "error": str(e)
         }

@@ -1,7 +1,8 @@
 from faster_whisper import WhisperModel
+from sqlalchemy.exc import SQLAlchemyError
+from core.utils import WHISPER_TO_NLLB
 from .models import Transcripts
 from ..videos.models import Videos
-from sqlalchemy.exc import SQLAlchemyError
 import os, time, json
 
 try:
@@ -57,12 +58,12 @@ def transcribe_audio(video_id, db):
         try:
             transcript_row = Transcripts(
                 video_id = video_id,
-                src_lang = info.language,
-                original_transcript = json.dumps(result)
+                src_lang = WHISPER_TO_NLLB.get(info.language),
+                original_transcript = result
             )
             db.add(transcript_row)
             print("row made")
-            
+
             db.commit()
             print("commit")
             
@@ -79,7 +80,7 @@ def transcribe_audio(video_id, db):
         print("\n\n")
 
         return { 
-            'language'            : info.language,
+            'language'            : WHISPER_TO_NLLB.get(info.language),
             'language_probablity' : info.language_probability,
             'segments'            : result
         }

@@ -10,17 +10,16 @@ router = APIRouter(prefix="/translate", tags=["Translate"])
 @router.post("/")
 async def translate(request: Request, db: Session = Depends(get_db)):
     try:
-        print("hi")
         data = await request.json()
         video_id = data["video_id"]
 
         text = []
         if 'text' in data:
-            text = data['text']
+            text = data.get("text")
         else:
             row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
             text = row.original_transcript
-            print(text)
+            # print(text)
         
         # text = json.loads(data['text'])
         start_time = time.time()
