@@ -19,3 +19,8 @@ def text_to_speech(request: TextToSpeechRequest, db:Session = Depends(get_db)):
         video_id = data.get("video_id")
 
         seperate_dialogues_background(video_id, db)
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
