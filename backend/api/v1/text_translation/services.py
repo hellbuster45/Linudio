@@ -11,13 +11,12 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 device = torch.device("cpu")
 model = model.to(device)
 
-async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn", tgt_lang="hin_Deva"):
+async def translate_text(video_id: str, db, text: list=None, tgt_lang: str="hin_Deva"):
     try:
         text_input = [] # Array of strings from text transcript dict
         for items in text:
             text_input.append(items.get('text'))
         
-        print("TEXT_INPUT: ", text_input)
         inputs = tokenizer(
             text_input,
             return_tensors = "pt",
@@ -54,8 +53,9 @@ async def translate_text(video_id: str, db, text: list=None, src_lang="eng_Latn"
             item['text'] = translated_result[i]
 
         row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
-        row.translated_transcript = text
+        print("TARGET LANGUAGE: ", tgt_lang)
         row.tgt_lang = tgt_lang
+        row.translated_transcript = text
         db.add(row)
         db.commit()
         db.refresh(row)

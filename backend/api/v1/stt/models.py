@@ -10,6 +10,8 @@ class Transcripts(Base):
     src_lang = Column(String, nullable=False)
     original_transcript = Column(JSON)
     translated_transcript = Column(JSON)
+    tgt_lang = Column(String)
+    probability = Column(Float)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

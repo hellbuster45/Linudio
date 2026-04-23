@@ -3,7 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from core.utils import WHISPER_TO_NLLB
 from .models import Transcripts
 from ..videos.models import Videos
-import os, time, json
+import os, time
 
 try:
     model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8")
@@ -19,6 +19,7 @@ def transcribe_audio(video_id, db):
         print("existing found")
         return {
             "src_lang": existing.src_lang,
+            "language_probablity": existing.probability,
             "text": existing.original_transcript
         }
     
@@ -59,6 +60,7 @@ def transcribe_audio(video_id, db):
             transcript_row = Transcripts(
                 video_id = video_id,
                 src_lang = WHISPER_TO_NLLB.get(info.language),
+                probability = info.language_probability,
                 original_transcript = result
             )
             db.add(transcript_row)

@@ -12,20 +12,27 @@ router = APIRouter(prefix="/translate", tags=["Translate"])
 async def translate(request: TranslationRequest, db: Session = Depends(get_db)):
     try:
         data = request.model_dump()
-        print("DATA: ", data)
+        print(data)
         video_id = data["video_id"]
 
         text = []
-        if data.get('text') != None:
-            text = data.get("text")
+        if 'text' in data:
+            print("Text present in request body")
+            text = data.get('text')
         else:
+            print("Text NOT present in request body")
             row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
             text = row.original_transcript
             print(text)
         
+        tgt_lang = None
+        print("TGT_LANG: ", data.get("tgt_lang"))
+        if 'tgt_lang' in data:
+            tgt_lang = data.get("tgt_lang")
+        
         # text = json.loads(data['text'])
         start_time = time.time()
-        translated = await translate_text(video_id, db, text=text)
+        translated = await translate_text(video_id, db, text, tgt_lang)
         end_time = time.time()
         
         print(f"TIME TAKEN: {end_time - start_time}")
