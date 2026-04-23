@@ -83,8 +83,6 @@ async def run_ffmpeg(cmd_list, task_name="FFMpeg"):
         
         cmd_str = " ".join(formatted_args)
         
-        print(f"--- Executing: {cmd_str} ---")
-
         # 3. Create the subprocess
         # Pass ONLY the string as the first argument, others as keywords
         process = await asyncio.create_subprocess_shell(
@@ -92,8 +90,6 @@ async def run_ffmpeg(cmd_list, task_name="FFMpeg"):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        
-        print(f"--- Subprocess Created (PID: {process.pid}) ---")
 
         # 4. Monitor stderr (where FFmpeg output lives)
         async def stream_logs(stream):
@@ -101,8 +97,6 @@ async def run_ffmpeg(cmd_list, task_name="FFMpeg"):
                 line = await stream.readline()
                 if not line:
                     break
-                # Use replace to handle Windows console encoding issues
-                print(f"[{task_name}] {line.decode('utf-8', errors='replace').strip()}")
 
         # Run logging and wait for exit
         await asyncio.gather(
