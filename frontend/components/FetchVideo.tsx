@@ -1,8 +1,6 @@
 'use client'
+import { Button, Input, Label, Spinner } from "@heroui/react";
 import { useState } from "react";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { Spinner } from "./ui/spinner";
 
 
 export function FetchVideo({ onVideoFetched }: { onVideoFetched: (data: any) => void }) {
@@ -38,18 +36,21 @@ export function FetchVideo({ onVideoFetched }: { onVideoFetched: (data: any) => 
         setUrl(e.target.value);
     }
     return (
-        <div className="flex flex-row gap-2 p-2">
-            <Input type="text" placeholder="http://youtube.com/watch?v=6dVI3gOEGXo" value={url} onChange={handleInput} />
+        <div className="flex flex-col gap-2 p-2">
+            <Label htmlFor="yt_url">Enter Youtube URL:</Label>
+            <div className="flex flex-row gap-2 p-2">
+                <Input type="text" name="yt_url" placeholder="http://youtube.com/watch?v=6dVI3gOEGXo" value={url} onChange={handleInput} />
                 {loading ? (
-                    <Button disabled>
-                        <Spinner data-icon="inline-start" />
+                    <Button isDisabled>
+                        <Spinner color="current" />
                         Fetch Video
                     </Button>
                 ) : (
-                    <Button disabled={!checkUrl(url)} onClick={handleFetch}>
+                    <Button isDisabled={!checkUrl(url)} onClick={handleFetch}>
                         Fetch Video
                     </Button>
                 )}
+            </div>
         </div>
     )
 }

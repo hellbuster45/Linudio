@@ -1,9 +1,6 @@
-import { AspectRatio } from "./ui/aspect-ratio";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardFooter, CardTitle } from "./ui/card";
 import { useState } from "react";
-import { Spinner } from "./ui/spinner";
 import Image from "next/image";
+import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Spinner } from "@heroui/react";
 
 export function VideoCard({ metadata, onStartSTT }: { metadata: any, onStartSTT: () => void }) {
     const [loading, setLoading] = useState(false);
@@ -18,9 +15,12 @@ export function VideoCard({ metadata, onStartSTT }: { metadata: any, onStartSTT:
             </CardHeader>
             <CardContent className="flex flex-row gap-2">
                 <div className="flex-1/3">
-                    <AspectRatio ratio={16 / 9} className="rounded-2xl">
-                        <Image src={ metadata?.thumbnail } alt="thumbnail" />
-                    </AspectRatio>
+                    <Image
+                        src={ metadata?.thumbnail }
+                        className="rounded-lg"
+                        alt="thumbnail"
+                        width={"400"}
+                        height={"300"}/>
                 </div>
                 <div className="border-black border flex-2/3">
                     <h3>metadata</h3>
@@ -32,7 +32,7 @@ export function VideoCard({ metadata, onStartSTT }: { metadata: any, onStartSTT:
                     !loading ? (
                         <Button onClick={() => setLoading(true)}> Start Transcription </Button>
                     ) : (
-                        <Button disabled>
+                        <Button isDisabled>
                             <Spinner data-icon="inline-start" />
                             Processing..
                         </Button>

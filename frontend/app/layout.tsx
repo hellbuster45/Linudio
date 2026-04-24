@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Montserrat, Share_Tech_Mono } from "next/font/google";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// 1. Define Montserrat
+const montserrat = Montserrat({
   subsets: ["latin"],
+  variable: "--font-montserrat", // This matches your CSS variable
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// 2. Define Share Tech Mono
+const mono = Share_Tech_Mono({
+  weight: "400",
   subsets: ["latin"],
+  variable: "--font-share-tech",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -25,9 +30,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${montserrat.variable} ${mono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-screen flex flex-col border-6 border-blue-700">
+      <body className="min-h-screen flex flex-col border-6 border-blue-700 font-sans">
+        Hi
         {children}
       </body>
     </html>

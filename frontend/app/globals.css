@@ -1,10 +1,14 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Mapping Tailwind utility classes to your custom variables */
+  --font-sans: var(--font-montserrat);
+  --font-mono: var(--font-share-tech);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -48,83 +52,116 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+/*
+ * HeroUI Theme Customization
+ * Add this to your global.css after importing @heroui/styles
+ * Only includes base variables from variables.css
+ * @see https://heroui.com/docs/react/getting-started/theming
+ */
+
+:root,
+.light,
+.default,
+[data-theme="light"],
+[data-theme="default"] {
+  /* Font Family Definitions */
+  --font-sans: "Montserrat", ui-sans-serif, system-ui;
+  --font-mono: "Share Tech Mono", ui-monospace, SFMono-Regular;
+  --font-heading: "Montserrat", sans-serif;
+  --font-special: "Playwrite AU QLD", cursive;
+
+  /* Theme Colors (Light Mode) */
+  --accent: oklch(57.14% 0.1364 156.87);
+  --accent-foreground: oklch(99.11% 0 0);
+  --background: oklch(97.02% 0.0053 156.87);
+  --border: oklch(90.00% 0.0053 156.87);
+  --danger: oklch(65.32% 0.2353 14.10);
+  --danger-foreground: oklch(99.11% 0 0);
+  --default: oklch(94.00% 0.0053 156.87);
+  --default-foreground: oklch(21.03% 0.0059 156.87);
+  --field-background: oklch(100.00% 0.0027 156.87);
+  --field-foreground: oklch(21.03% 0.0053 156.87);
+  --field-placeholder: oklch(55.17% 0.0106 156.87);
+  --focus: oklch(57.14% 0.1364 156.87);
+  --foreground: oklch(21.03% 0.0053 156.87);
+  --muted: oklch(55.17% 0.0106 156.87);
+  --overlay: oklch(100.00% 0.0016 156.87);
+  --overlay-foreground: oklch(21.03% 0.0053 156.87);
+  --scrollbar: oklch(87.10% 0.0053 156.87);
+  --segment: oklch(100.00% 0.0053 156.87);
+  --segment-foreground: oklch(21.03% 0.0053 156.87);
+  --separator: oklch(92.00% 0.0053 156.87);
+  --success: oklch(73.29% 0.1956 139.17);
+  --success-foreground: oklch(21.03% 0.0059 139.17);
+  --surface: oklch(100.00% 0.0027 156.87);
+  --surface-foreground: oklch(21.03% 0.0053 156.87);
+  --surface-secondary: oklch(95.24% 0.0042 156.87);
+  --surface-secondary-foreground: oklch(21.03% 0.0053 156.87);
+  --surface-tertiary: oklch(93.73% 0.0042 156.87);
+  --surface-tertiary-foreground: oklch(21.03% 0.0053 156.87);
+  --warning: oklch(78.19% 0.1602 60.69);
+  --warning-foreground: oklch(21.03% 0.0059 60.69);
+
+  /* Border Radius */
+  --radius: 0.75rem;
+  --field-radius: 0.75rem;
+
+  /* Font Family */
+  /* Make sure to load Figtree font in your app */
+  --font-sans: var(--font-figtree);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* Theme Colors (Dark Mode) */
+  --accent: oklch(57.14% 0.1364 156.87);
+  --accent-foreground: oklch(99.11% 0 0);
+  --background: oklch(12.00% 0.0053 156.87);
+  --border: oklch(28.00% 0.0053 156.87);
+  --danger: oklch(59.40% 0.1988 12.99);
+  --danger-foreground: oklch(99.11% 0 0);
+  --default: oklch(27.40% 0.0053 156.87);
+  --default-foreground: oklch(99.11% 0 0);
+  --field-background: oklch(21.03% 0.0106 156.87);
+  --field-foreground: oklch(99.11% 0.0053 156.87);
+  --field-placeholder: oklch(70.50% 0.0106 156.87);
+  --focus: oklch(57.14% 0.1364 156.87);
+  --foreground: oklch(99.11% 0.0053 156.87);
+  --muted: oklch(70.50% 0.0106 156.87);
+  --overlay: oklch(21.03% 0.0106 156.87);
+  --overlay-foreground: oklch(99.11% 0.0053 156.87);
+  --scrollbar: oklch(70.50% 0.0053 156.87);
+  --segment: oklch(39.64% 0.0053 156.87);
+  --segment-foreground: oklch(99.11% 0.0053 156.87);
+  --separator: oklch(25.00% 0.0053 156.87);
+  --success: oklch(73.29% 0.1956 139.17);
+  --success-foreground: oklch(21.03% 0.0059 139.17);
+  --surface: oklch(21.03% 0.0106 156.87);
+  --surface-foreground: oklch(99.11% 0.0053 156.87);
+  --surface-secondary: oklch(25.70% 0.0080 156.87);
+  --surface-secondary-foreground: oklch(99.11% 0.0053 156.87);
+  --surface-tertiary: oklch(27.21% 0.0080 156.87);
+  --surface-tertiary-foreground: oklch(99.11% 0.0053 156.87);
+  --warning: oklch(82.03% 0.1403 64.70);
+  --warning-foreground: oklch(21.03% 0.0059 64.70);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html, body {
+    font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif !important;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
+
+  code,
+  pre {
+    font-family: var(--font-mono);
   }
 }

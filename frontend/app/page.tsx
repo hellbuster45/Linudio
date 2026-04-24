@@ -1,5 +1,6 @@
 'use client'
 import { FetchVideo } from "@/components/FetchVideo";
+import { TranscriptPane } from "@/components/TranscriptPane";
 import { VideoCard } from "@/components/VideoCard";
 import { useState } from "react";
 
@@ -13,8 +14,9 @@ export default function Home() {
         <h3>Linudio</h3>
         <p>Translator</p>
       </div>
-
       <FetchVideo onVideoFetched={(data) => setMetadata(data)} />
+
+      <TranscriptPane />
 
       {metadata && (
         <VideoCard
