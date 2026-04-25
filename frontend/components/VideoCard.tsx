@@ -1,17 +1,41 @@
 import { useState } from "react";
 import Image from "next/image";
-import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Spinner } from "@heroui/react";
+import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Separator, Spinner } from "@heroui/react";
 
-export function VideoCard({ metadata, onStartSTT }: { metadata: any, onStartSTT: () => void }) {
+export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, onTranscriptFetched: (data: any) => void }) {
     const [loading, setLoading] = useState(false);
+
+    const handleFetch = async () => {
+        setLoading(true);
+        const video_id = metadata.video_id;
+        try {
+            const response = await fetch("http://localhost:8000/synthesize/", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ video_id })
+            });
+
+            const data = await response.json();
+            onTranscriptFetched(data);
+        } catch(error) {
+            console.log("TRANSCRIPTION FETCH ERROR");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <Card className="border-2 border-black">
             <CardHeader>
                 <CardTitle>
-                    Fetched Video Successfully !
+                    { metadata?.title }
                 </CardTitle>
-                <CardDescription>Desc</CardDescription>
+                <CardDescription className="flex flex-row gap-2">
+                    { metadata?.upload_date }
+                    <Separator orientation="vertical"/>
+                    { metadata?.resolution }
+                </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-row gap-2">
                 <div className="flex-1/3">
@@ -30,7 +54,7 @@ export function VideoCard({ metadata, onStartSTT }: { metadata: any, onStartSTT:
             <CardFooter>
                 {
                     !loading ? (
-                        <Button onClick={() => setLoading(true)}> Start Transcription </Button>
+                        <Button onClick={() => handleFetch()}> Start Transcription </Button>
                     ) : (
                         <Button isDisabled>
                             <Spinner data-icon="inline-start" />
