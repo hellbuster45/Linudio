@@ -15,15 +15,15 @@ async def translate(request: TranslationRequest, db: Session = Depends(get_db)):
         print(data)
         video_id = data["video_id"]
 
-        text = []
+        text_segments = []
         if 'text' in data:
             print("Text present in request body")
-            text = data.get('text')
+            text_segments = data.get('segments')
         else:
             print("Text NOT present in request body")
             row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
-            text = row.original_transcript
-            print(text)
+            text_segments = row.original_transcript
+            print(text_segments)
         
         tgt_lang = None
         print("TGT_LANG: ", data.get("tgt_lang"))
@@ -32,7 +32,7 @@ async def translate(request: TranslationRequest, db: Session = Depends(get_db)):
         
         # text = json.loads(data['text'])
         start_time = time.time()
-        translated = await translate_text(video_id, db, text, tgt_lang)
+        translated = await translate_text(video_id, db, text_segments, tgt_lang)
         end_time = time.time()
         
         print(f"TIME TAKEN: {end_time - start_time}")

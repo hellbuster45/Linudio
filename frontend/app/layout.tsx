@@ -33,7 +33,6 @@ export default function RootLayout({
       className={`${montserrat.variable} ${mono.variable} h-full antialiased dark`}
     >
       <body className="min-h-screen flex flex-col border-6 border-blue-700 font-sans">
-        Hi
         {children}
       </body>
     </html>

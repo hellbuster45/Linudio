@@ -26,38 +26,33 @@ export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, on
     }
 
     return (
-        <Card className="border-2 border-black">
+        <Card className="md:w-2xl lg:3xl">
             <CardHeader>
-                <CardTitle>
-                    { metadata?.title }
-                </CardTitle>
-                <CardDescription className="flex flex-row gap-2">
-                    { metadata?.upload_date }
-                    <Separator orientation="vertical"/>
-                    { metadata?.resolution }
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-row gap-2">
-                <div className="flex-1/3">
+                <CardTitle className="flex flex-col gap-2">
                     <Image
                         src={ metadata?.thumbnail }
-                        className="rounded-lg"
+                        className="rounded-xl w-full"
                         alt="thumbnail"
                         width={"400"}
-                        height={"300"}/>
-                </div>
-                <div className="border-black border flex-2/3">
-                    <h3>metadata</h3>
-                    <p>Resolution: 1920 * 1080</p>
-                </div>
-            </CardContent>
-            <CardFooter>
+                        height={"300"}
+                    />
+                    <p className="md:text-xl">
+                        { metadata?.title }
+                    </p>
+                </CardTitle>
+                <CardDescription className="flex flex-row gap-2">
+                    { metadata?.resolution }
+                    <Separator orientation="vertical"/>
+                    { metadata?.upload_date }
+                </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex flex-row justify-center">
                 {
                     !loading ? (
                         <Button onClick={() => handleFetch()}> Start Transcription </Button>
                     ) : (
                         <Button isDisabled>
-                            <Spinner data-icon="inline-start" />
+                            <Spinner color="current" />
                             Processing..
                         </Button>
                     )

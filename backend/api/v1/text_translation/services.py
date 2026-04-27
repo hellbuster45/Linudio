@@ -28,6 +28,7 @@ async def translate_text(video_id: str, db, text: list=None, tgt_lang: str="hin_
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
         # Generate Translation
+        print("Starting Translation...")
         with torch.no_grad():
             translated_tokens = model.generate (
                 **inputs,
@@ -53,7 +54,6 @@ async def translate_text(video_id: str, db, text: list=None, tgt_lang: str="hin_
             item['text'] = translated_result[i]
 
         row = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
-        print("TARGET LANGUAGE: ", tgt_lang)
         row.tgt_lang = tgt_lang
         row.translated_transcript = text
         db.add(row)
@@ -61,8 +61,9 @@ async def translate_text(video_id: str, db, text: list=None, tgt_lang: str="hin_
         db.refresh(row)
 
         return {
-            "message": "success",
-            "translated_text": text
+            "status": "success",
+            "tgt_lang": tgt_lang,
+            "translated_segments": text
         }
     except SQLAlchemyError as e:
         return {

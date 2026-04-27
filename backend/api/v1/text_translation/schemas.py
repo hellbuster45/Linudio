@@ -9,5 +9,5 @@ class TranscriptSegment(BaseModel):
 
 class TranslationRequest(BaseModel):
     video_id: str
-    text: Optional[List[TranscriptSegment]] = None
+    segments: Optional[List[TranscriptSegment]] = None
     tgt_lang: str

@@ -1,20 +1,23 @@
-import { Card, Chip, Surface, TextArea } from "@heroui/react";
+import { Card, Chip, TextArea } from "@heroui/react";
+import { Segments } from "./TranscriptPane";
+import { formatWhisperTimestamp } from "@/lib/utils";
 
-export function TranscriptField() {
+export function TranscriptField({ segments, onValueChanged }: { segments: Segments, onValueChanged: (data: any) => void }) {
     return (
-        <Card className="w-auto md:w-2xl">
+        <Card className="w-auto">
             <Card.Header>
                 <Card.Description className="flex flex-row gap-2">
-                    <Chip className="text-muted">00:00</Chip>
+                    <Chip className="text-muted">{ formatWhisperTimestamp(segments?.start_time) }</Chip>
                     -
-                    <Chip className="text-muted">00:46</Chip>
+                    <Chip className="text-muted">{ formatWhisperTimestamp(segments?.end_time) }</Chip>
                 </Card.Description>
             </Card.Header>
             <Card.Content>
                 <TextArea
-                    placeholder="fdklghdkjfgfdnkbnlvcdjkldfnjgbfhsdnjlkgfdjbjbndglkafsnkljfpowejdoasocksmcm,zxzvmawljfiwkojk"
+                    defaultValue={ segments?.text }
                     className={"border border-border/50 w-full"}
                     variant="secondary"
+                    onChange={(value) => onValueChanged(value)}
                 />
             </Card.Content>
         </Card>

@@ -19,8 +19,8 @@ def transcribe_audio(video_id, db):
         print("existing found")
         return {
             "src_lang": existing.src_lang,
-            "language_probablity": existing.probability,
-            "text": existing.original_transcript
+            "language_probability": existing.probability,
+            "segments": existing.original_transcript
         }
     
     video_row = db.query(Videos).filter(Videos.video_id == video_id).first()
@@ -82,8 +82,8 @@ def transcribe_audio(video_id, db):
         print("\n\n")
 
         return { 
-            'language'            : WHISPER_TO_NLLB.get(info.language),
-            'language_probablity' : info.language_probability,
+            'src_lang'            : WHISPER_TO_NLLB.get(info.language),
+            'language_probability' : info.language_probability,
             'segments'            : result
         }
     except Exception as e:
