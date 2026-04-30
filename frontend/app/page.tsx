@@ -25,18 +25,15 @@ export default function Home() {
   };
 
   const saveTranscript = (data: any) => {
-    console.log("SAVED FOR SOME FUCKING REASON");
-
     // create a new reference in memory, without it,
     // both trans and og_trans point to same reference,
     // and updating one will affect the other too, defeating the whole purpose
     setOriginalTranscript(JSON.parse(JSON.stringify(data)));
-    
+
     setTranscript(data);
   }
 
   const saveTranslated = (data: any) => {
-    console.log("SAVED FOR SOME FUCKING REASON: TRANSLATED");
     setOriginalTranslated(JSON.parse(JSON.stringify(data)));
     setTranslated(data);
   }
@@ -44,6 +41,7 @@ export default function Home() {
   const resetTranscript = () => {
     if (originalTranscript) {
       setTranscript(originalTranscript);
+      console.log(transcript);
     }
   }
 
@@ -54,20 +52,23 @@ export default function Home() {
   }
 
   const updatedSegment = (type: "original" | "translated", index: number, newText: string) => {
-    if (transcript && type === "original") {
-      const updated = {...transcript};
-      console.log("SEGMENTS: ", updated)
-      updated.segments[index].text = newText;
-      setTranscript(updated);
+    if (type === "original" && transcript) {
+      setTranscript((prev: any) => {
+        // 1. Create a new array reference for segments
+        const newSegments = [...prev.segments];
 
-      console.log("TRANSCRIPT:----------------------------", transcript);
-      console.log("ORIGINAL TRANSCRIPT:-------------------", originalTranscript);
-    } else {
-      if (translated) {
-        const updated = {...translated};
-        updated.translated_segments[index].text = newText;
-        setTranslated(updated);
-      }
+        // 2. Create a new object reference for the specific segment being edited
+        newSegments[index] = { ...newSegments[index], text: newText };
+
+        // 3. Return a brand new object for the transcript
+        return { ...prev, segments: newSegments };
+      });
+    } else if (type === "translated" && translated) {
+      setTranslated((prev: any) => {
+        const newSegments = [...prev.translated_segments];
+        newSegments[index] = { ...newSegments[index], text: newText };
+        return { ...prev, translated_segments: newSegments };
+      });
     }
   }
 

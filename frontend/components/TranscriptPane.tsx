@@ -34,7 +34,18 @@ export function TranscriptPane ({
 }) {
     const [loading, setLoading] = useState<any>(null);
     const [language, setLanguage] = useState<any>(null);
+    const [changes, setChanges] = useState<Set<number>>(new Set());
 
+    const handleUpdate = (index: number, newText: string) => {
+        onUpdate(index, newText);
+        setChanges(prev => new Set(prev).add(index));
+    }
+    
+    const handleReset = () => {
+        onReset();
+        setChanges(new Set());
+    }
+    
     const rawAccuracy = transcript?.language_probability || 0;
     const formattedAccuracy = (rawAccuracy * 100).toFixed(1);
 
