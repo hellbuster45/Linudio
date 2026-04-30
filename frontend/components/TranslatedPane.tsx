@@ -1,7 +1,7 @@
 'use client'
-import { Button, Chip, Label, ListBox, ListBoxItemIndicator, ScrollShadow, Select } from "@heroui/react";
+import { Button, Chip, ScrollShadow, Spinner } from "@heroui/react";
 import { TranscriptField } from "./TranscriptField";
-import { NAME_TO_NLLB_CODE, NLLB_CODE_TO_NAME, WHISPER_ISO_TO_NAME } from "@/lib/constants";
+import { NLLB_CODE_TO_NAME } from "@/lib/constants";
 import { useState } from "react";
 
 export interface Segments {
@@ -12,7 +12,7 @@ export interface Segments {
 }
 
 interface Translated {
-    message: string,
+    status: string,
     tgt_lang: string,
     translated_segments: Segments[]    
 }
@@ -20,21 +20,30 @@ interface Translated {
 export function TranslatedPane ({
     video_id,
     translated,
-    hasChanges,
     onReset,
     onUpdate,
     onTranslatedFetched
 } : {
     video_id: string,
     translated: Translated,
-    hasChanges: boolean,
     onReset: () => void,
     onUpdate: (index: number, newText: string) => void,
     onTranslatedFetched: (data: any) => void
 }) {
     const [loading, setLoading] = useState<any>(null);
     const [language, setLanguage] = useState<any>(null);
-    const [changes, setChanges] = useState<any>(null);
+    const [changes, setChanges] = useState<Set<number>>(new Set());
+
+    const handleUpdate = (index: number, newText: string) => {
+        onUpdate(index, newText);
+        setChanges(prev => new Set(prev).add(index));
+    }
+    
+    const handleReset = () => {
+        onReset();
+        setChanges(new Set());
+    }
+    const hasLocalChanges = changes.size > 0;
 
 
     const handleFetch = async() => {
@@ -52,8 +61,8 @@ export function TranslatedPane ({
     // console.log("CHANGES: ", changes);
 
     return (
-        <div className="w-auto lg:w-lg">
-            <div className="flex flex-col md:flex-row gap-2 mx-4 mt-4">
+        <div className="w-full">
+            <div className="flex flex-col md:flex-row gap-2 mx-4">
                 <h2 className="text-md">
                     Translated Transcript
                 </h2>
@@ -68,17 +77,29 @@ export function TranslatedPane ({
                         <TranscriptField
                             key={index}
                             segments={segment}
-                            onValueChanged={(data) => onUpdate(index, data)}
+                            onValueChanged={(newText: string) => handleUpdate(index, newText)}
                         />
                     ))
                 }
             </ScrollShadow>
 
-            <div>
-                { hasChanges && (
+            <div className=" w-full md:w-auto flex flex-col md:flex-row gap-2 mt-2">
+                {
+                    !loading ? (
+                        <Button>
+                            Start Dubbing
+                        </Button>
+                    ) : (
+                        <Button>
+                            <Spinner color="current" />
+                            Processing..
+                        </Button>
+                    )
+                }
+                { hasLocalChanges && (
                     <Button
-                        variant="secondary"
-                        onClick={onReset}
+                        variant="outline"
+                        onClick={handleReset}
                     >
                         Reset Changes
                     </Button>

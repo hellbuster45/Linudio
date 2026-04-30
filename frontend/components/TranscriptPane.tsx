@@ -20,14 +20,12 @@ interface Transcript {
 export function TranscriptPane ({
     video_id,
     transcript,
-    hasChanges,
     onReset,
     onUpdate,
     onTranslatedFetched
 } : {
     video_id: string,
     transcript: Transcript,
-    hasChanges: boolean,
     onReset: () => void,
     onUpdate: (index: number, newText: string) => void,
     onTranslatedFetched: (data: any) => void
@@ -45,7 +43,9 @@ export function TranscriptPane ({
         onReset();
         setChanges(new Set());
     }
-    
+    const hasLocalChanges = changes.size > 0;
+
+
     const rawAccuracy = transcript?.language_probability || 0;
     const formattedAccuracy = (rawAccuracy * 100).toFixed(1);
 
@@ -80,8 +80,8 @@ export function TranscriptPane ({
 
     // console.log(changes)
     return (
-        <div className="w-auto lg:w-lg">
-            <div className="flex flex-col md:flex-row gap-2 mx-4 mt-4">
+        <div className="w-full">
+            <div className="flex flex-col md:flex-row gap-2 mx-4">
                 <h2 className="text-md">
                     Original Transcript
                 </h2>
@@ -97,7 +97,7 @@ export function TranscriptPane ({
                         <TranscriptField
                             key={index}
                             segments={segment}
-                            onValueChanged={(newText: string) => onUpdate(index, newText)}
+                            onValueChanged={(newText: string) => handleUpdate(index, newText)}
                         />
                     ))
                 }
@@ -126,7 +126,7 @@ export function TranscriptPane ({
                 <div className=" w-full md:w-auto flex flex-col md:flex-row gap-2 mt-2">
                     { language ? (
                         !loading ? (
-                            <Button onClick={() => handleFetch()}> Start Trranslation </Button>
+                            <Button onClick={() => handleFetch()}> Start Translation </Button>
                         ) : (
                             <Button isDisabled>
                                 <Spinner color="current" />
@@ -137,10 +137,10 @@ export function TranscriptPane ({
                         <Button isDisabled>Start Translation</Button>
                     )}
                     
-                    { hasChanges && (
+                    { hasLocalChanges && (
                         <Button
                             variant="outline"
-                            onClick={onReset}
+                            onClick={handleReset}
                         >
                             Reset Changes
                         </Button>

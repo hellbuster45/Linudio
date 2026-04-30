@@ -1,25 +1,43 @@
 import { Card, Chip, TextArea } from "@heroui/react";
 import { Segments } from "./TranscriptPane";
 import { formatWhisperTimestamp } from "@/lib/utils";
+import { JSX, memo, useCallback, useRef } from "react";
 
-export function TranscriptField ({ segments, onValueChanged }: { segments: Segments, onValueChanged: (newText: string) => void }) {
+export const TranscriptField = memo(({ segments, onValueChanged }: { segments: Segments, onValueChanged: (newText: string) => void }): JSX.Element => {
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleChange = useCallback((newText: string) => {
+        // Clear previous timer
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+        }
+
+        // Set new timer to update parent after 500ms of no typing
+        timerRef.current = setTimeout(() => {
+            onValueChanged(newText);
+        }, 2);
+    }, [onValueChanged]);
+
     return (
-        <Card className="w-auto">
+        <Card className="w-full">
             <Card.Header>
                 <Card.Description className="flex flex-row gap-2">
-                    <Chip className="text-muted">{ formatWhisperTimestamp(segments?.start_time) }</Chip>
+                    <Chip className="text-muted">{formatWhisperTimestamp(segments?.start_time)}</Chip>
                     -
-                    <Chip className="text-muted">{ formatWhisperTimestamp(segments?.end_time) }</Chip>
+                    <Chip className="text-muted">{formatWhisperTimestamp(segments?.end_time)}</Chip>
                 </Card.Description>
             </Card.Header>
             <Card.Content>
                 <TextArea
-                    value={ segments?.text }
+                    value={segments?.text}
                     className={"border border-border/50 w-full"}
                     variant="secondary"
-                    onChange={(event) => onValueChanged(event.target.value)}
+                    onChange={(event) => handleChange(event.target.value)}
                 />
             </Card.Content>
         </Card>
     )
-}
+}, (prevProps, nextProps) => {
+    return prevProps.segments.text === nextProps.segments.text &&
+        prevProps.segments.id === nextProps.segments.id;
+});

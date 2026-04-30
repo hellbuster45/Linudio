@@ -54,6 +54,7 @@ export default function Home() {
   const updatedSegment = (type: "original" | "translated", index: number, newText: string) => {
     if (type === "original" && transcript) {
       setTranscript((prev: any) => {
+        if (prev.segments[index].text === newText) return prev;
         // 1. Create a new array reference for segments
         const newSegments = [...prev.segments];
 
@@ -65,6 +66,8 @@ export default function Home() {
       });
     } else if (type === "translated" && translated) {
       setTranslated((prev: any) => {
+        if (prev.translated_segments[index].text === newText) return prev;
+
         const newSegments = [...prev.translated_segments];
         newSegments[index] = { ...newSegments[index], text: newText };
         return { ...prev, translated_segments: newSegments };
@@ -74,7 +77,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background font-sans selection:bg-accent/30">
-      <div className="max-w-7xl mx-auto px-4 py-12 flex flex-col items-center gap-12">
+      <div className="max-w-[95%] mx-auto px-4 py-12 flex flex-col items-center gap-12 border border-white">
 
         {/* --- Header Section --- */}
         <motion.div
@@ -113,7 +116,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
-              className="w-full max-w-2xl"
+              className="w-full flex justify-center"
             >
               <FetchVideo onVideoFetched={handleData} />
             </motion.div>
@@ -134,18 +137,17 @@ export default function Home() {
             </motion.div>
           )}
 
-          <div className="flex flex-row justify-center gap-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+          <div className="w-auto md:w-[50%] lg:w-[75%] flex flex-row justify-center gap-0 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
             <AnimatePresence mode="wait">
               {transcript && (
                 <motion.div
                   initial={{ opacity: 0, x: -50 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="p-6"
+                  className="p-6 w-full"
                 >
                   <TranscriptPane
                     video_id={video_id!}
                     transcript={transcript}
-                    hasChanges={JSON.stringify(transcript) !== JSON.stringify(originalTranscript)}
                     onTranslatedFetched={(data) => saveTranslated(data)}
                     onReset={resetTranscript}
                     onUpdate={(idx, text) => updatedSegment('original', idx, text)}
@@ -158,7 +160,7 @@ export default function Home() {
               <motion.div
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="p-6 border-l border-white/10 relative"
+                className="p-6 border-l border-white/10 relative w-full"
               >
                 <div className="absolute inset-y-0 left-[0.5px] hidden lg:block">
                   <Separator orientation="vertical" />
@@ -166,7 +168,6 @@ export default function Home() {
                 <TranslatedPane
                   video_id={video_id!}
                   translated={translated}
-                  hasChanges={JSON.stringify(translated) !== JSON.stringify(originalTranslated)}
                   onTranslatedFetched={(data) => setTranslated(data)}
                   onReset={resetTranslated}
                   onUpdate={(idx, text) => updatedSegment('translated', idx, text)}
