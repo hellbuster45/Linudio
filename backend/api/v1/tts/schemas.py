@@ -9,4 +9,5 @@ class TranscriptSegment(BaseModel):
 
 class TextToSpeechRequest(BaseModel):
     video_id: str
-    text: Optional[List[TranscriptSegment]] = None
+    lang_code: str
+    segments: List[TranscriptSegment] = None

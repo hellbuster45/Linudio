@@ -6,8 +6,10 @@ async def get_video(video_url, db, metadata):
     try: # get video_id, and transcripts if present
         video_id = metadata['video_id']
         video_info = await downloader(url=video_url, video_id=video_id) # download video, if no transcript available
+        
         print("\n\n\nVIDEO_INFO\n\n\n", video_info)
         print(f"\n\nAUDIO_PATH: { video_info.get('folder') }\n\n")
+        
         try:
             video_row = Videos(
                 video_id      = video_id,

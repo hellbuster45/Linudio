@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.v1.stt.routes import router as synthesize_router
 from api.v1.text_translation.routes import router as translate_router
 from api.v1.videos.routes import router as video_router
+from api.v1.tts.routes import router as tts_router
 import sys, asyncio
 
 if sys.platform == 'win32':
@@ -22,6 +23,7 @@ app.add_middleware(
 app.include_router(video_router)
 app.include_router(synthesize_router)
 app.include_router(translate_router)
+app.include_router(tts_router)
 
 
 @app.get("/")
