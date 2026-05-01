@@ -31,7 +31,6 @@ export function TranslatedPane ({
     onTranslatedFetched: (data: any) => void
 }) {
     const [loading, setLoading] = useState<any>(null);
-    const [language, setLanguage] = useState<any>(null);
     const [changes, setChanges] = useState<Set<number>>(new Set());
 
     const handleUpdate = (index: number, newText: string) => {
@@ -49,14 +48,14 @@ export function TranslatedPane ({
     const handleFetch = async() => {
         setLoading(true);
 
-        // try {
-        //     console.log("IMPLEMENT TTS QUICKLYYY NIGGAAA!");
-        // } catch(error) {
-        //     console.log("TRANSLATE FETCH ERROR");
-        //     console.error(error);
-        // } finally {
-        //     setLoading(false);
-        // }
+        try {
+            console.log("IMPLEMENT TTS QUICKLYYY NIGGAAA!");
+        } catch(error) {
+            console.log("TRANSLATE FETCH ERROR");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     }
     // console.log("CHANGES: ", changes);
 

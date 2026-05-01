@@ -26,7 +26,7 @@ export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, on
     }
 
     return (
-        <Card className="md:w-2xl lg:3xl">
+        <Card className="md:w-2xl lg:w-3xl">
             <CardHeader>
                 <CardTitle className="flex flex-col gap-2">
                     <Image
@@ -40,12 +40,12 @@ export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, on
                         { metadata?.title }
                     </p>
                 </CardTitle>
-                <CardDescription className="flex flex-row gap-2">
-                    { metadata?.resolution }
-                    <Separator orientation="vertical"/>
-                    { metadata?.upload_date }
-                </CardDescription>
             </CardHeader>
+            <div className="flex flex-row gap-2 text-muted">
+                { metadata?.resolution }
+                <Separator orientation="vertical"/>
+                { metadata?.upload_date }
+            </div>
             <CardFooter className="flex flex-row justify-center">
                 {
                     !loading ? (
