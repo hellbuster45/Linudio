@@ -19,6 +19,8 @@ export default function Home() {
   const [translated, setTranslated] = useState<any>(null);
   const [originalTranslated, setOriginalTranslated] = useState<any>(null);
 
+  const [dubStarted, setDubStarted] = useState<any>(null);
+
   const handleData = (data: any) => {
     setMetadata(data);
     setVideoID(data.video_id);
@@ -75,6 +77,7 @@ export default function Home() {
     }
   }
 
+  // const pollDub = ()
   return (
     <main className="min-h-screen bg-background font-sans selection:bg-accent/30">
       <div className="max-w-[95%] mx-auto px-4 py-12 flex flex-col items-center gap-12 border border-white">
@@ -168,7 +171,7 @@ export default function Home() {
                 <TranslatedPane
                   video_id={video_id!}
                   translated={translated}
-                  onTranslatedFetched={(data) => setTranslated(data)}
+                  onDubStarted={(data) => setDubStarted(data)}
                   onReset={resetTranslated}
                   onUpdate={(idx, text) => updatedSegment('translated', idx, text)}
                 />

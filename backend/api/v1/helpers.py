@@ -8,13 +8,13 @@ if sys.platform == 'win32':
 async def downloader(url: str, video_id: str):
     try:
         # Create Path for each video storage/{video_id}
-        base_path = os.path.join("storage", video_id)
+        base_path = os.path.join("storage/videos", video_id)
         os.makedirs(base_path, exist_ok=True)
 
         master_video = os.path.join(base_path, f"{video_id}_video.mp4")
         stereo_audio = os.path.join(base_path, f"{video_id}_stereo.wav")
         mono_audio   = os.path.join(base_path, f"{video_id}_mono.wav")
-        
+
         ydl_opts = {
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

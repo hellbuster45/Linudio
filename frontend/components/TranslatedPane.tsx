@@ -22,13 +22,13 @@ export function TranslatedPane ({
     translated,
     onReset,
     onUpdate,
-    onTranslatedFetched
+    onDubStarted
 } : {
     video_id: string,
     translated: Translated,
     onReset: () => void,
     onUpdate: (index: number, newText: string) => void,
-    onTranslatedFetched: (data: any) => void
+    onDubStarted: (data: any) => void
 }) {
     const [loading, setLoading] = useState<any>(null);
     const [changes, setChanges] = useState<Set<number>>(new Set());
@@ -45,11 +45,23 @@ export function TranslatedPane ({
     const hasLocalChanges = changes.size > 0;
 
 
-    const handleFetch = async() => {
+    const startDub = async() => {
         setLoading(true);
+        const payload = {
+            video_id: video_id,
+            lang_code: translated?.tgt_lang,
+            segments: translated?.translated_segments
+        }
 
         try {
-            console.log("IMPLEMENT TTS QUICKLYYY NIGGAAA!");
+            const response = await fetch("http://localhost:8000/text_to_speech/dub", {
+                method: "GET",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            onDubStarted(data);
         } catch(error) {
             console.log("TRANSLATE FETCH ERROR");
             console.error(error);
@@ -85,7 +97,9 @@ export function TranslatedPane ({
             <div className=" w-full md:w-auto flex flex-col md:flex-row gap-2 mt-2">
                 {
                     !loading ? (
-                        <Button>
+                        <Button
+                            onClick={startDub}
+                        >
                             Start Dubbing
                         </Button>
                     ) : (

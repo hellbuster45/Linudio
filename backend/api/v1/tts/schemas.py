@@ -11,3 +11,6 @@ class TextToSpeechRequest(BaseModel):
     video_id: str
     lang_code: str
     segments: List[TranscriptSegment] = None
+
+class DubStatusRequest(BaseModel):
+    video_id: str
