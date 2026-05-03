@@ -55,7 +55,7 @@ export function TranslatedPane ({
 
         try {
             const response = await fetch("http://localhost:8000/text_to_speech/dub", {
-                method: "GET",
+                method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(payload)
             });
@@ -69,7 +69,6 @@ export function TranslatedPane ({
             setLoading(false);
         }
     }
-    // console.log("CHANGES: ", changes);
 
     return (
         <div className="w-full">

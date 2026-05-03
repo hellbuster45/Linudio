@@ -32,7 +32,7 @@ export default function RootLayout({
       lang="en"
       className={`${montserrat.variable} ${mono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-screen flex flex-col border-6 border-blue-700 font-sans">
+      <body className="min-h-screen flex flex-col border-6 border-blue-700 font-sans" suppressHydrationWarning={true}>
         {children}
       </body>
     </html>

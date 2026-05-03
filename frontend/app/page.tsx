@@ -3,8 +3,8 @@ import { FetchVideo } from "@/components/FetchVideo";
 import { TranscriptPane } from "@/components/TranscriptPane";
 import { TranslatedPane } from "@/components/TranslatedPane";
 import { VideoCard } from "@/components/VideoCard";
-import { Button, Separator } from "@heroui/react";
-import { useState } from "react";
+import { Button, Separator, Spinner } from "@heroui/react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
@@ -19,7 +19,9 @@ export default function Home() {
   const [translated, setTranslated] = useState<any>(null);
   const [originalTranslated, setOriginalTranslated] = useState<any>(null);
 
-  const [dubStarted, setDubStarted] = useState<any>(null);
+  const [dubStarted, setDubStarted] = useState<any>(false);
+  const [dubStatus, setDubStatus] = useState<any>(null);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
 
   const handleData = (data: any) => {
     setMetadata(data);
@@ -77,7 +79,40 @@ export default function Home() {
     }
   }
 
-  // const pollDub = ()
+  const pollDubStatus = async (v_id: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/text_to_speech/dub_status?video_id=${v_id}`);
+      const data = await response.json();
+
+      setDubStatus(data.status);
+
+      if (data.status === "complete") {
+        setFinalVideoUrl(data.video_url); // Use the URL we mounted in FastAPI
+        setDubStatus(null); // Stop polling
+        return true; // Success
+      }
+      return false; // Still processing
+    } catch (err) {
+      console.error("Polling error", err);
+      return true; // Stop on error
+    }
+  };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (dubStarted) {
+      setDubStatus("Initializing...");
+      
+      interval = setInterval(async () => {
+        const isDone = await pollDubStatus(video_id!);
+        if (isDone) clearInterval(interval);
+      }, 10000); // Poll every 3 seconds
+    }
+
+    return () => clearInterval(interval);
+  }, [dubStarted]);
+
   return (
     <main className="min-h-screen bg-background font-sans selection:bg-accent/30">
       <div className="max-w-[95%] mx-auto px-4 py-12 flex flex-col items-center gap-12 border border-white">
@@ -125,6 +160,35 @@ export default function Home() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* --- Final Video Display --- */}
+        {finalVideoUrl && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl border border-primary/20"
+          >
+            <video controls className="w-full">
+              <source src={finalVideoUrl} type="video/mp4" />
+            </video>
+            <div className="p-4 bg-zinc-900 text-center">
+              <p className="text-success font-bold">Dubbing Complete!</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* --- Polling Status Overlay --- */}
+        {dubStatus && (
+          <div className="fixed bottom-10 right-10 z-50">
+            <div className="bg-zinc-900 border border-white/10 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
+              <Spinner color="current" />
+              <div className="text-center">
+                <p className="font-bold capitalize">{dubStatus.replace('_', ' ')}</p>
+                <p className="text-xs text-muted-foreground">Please keep this tab open</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* --- Result Grid --- */}
         <div className="w-full space-y-8 flex flex-col items-center">

@@ -16,7 +16,7 @@ def health():
         "status": "success"
     }
 
-@router.get("/dub")
+@router.post("/dub")
 async def text_to_speech(request: TextToSpeechRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     
     # Quick validation: check if the original video exists before starting
@@ -51,15 +51,14 @@ async def text_to_speech(request: TextToSpeechRequest, background_tasks: Backgro
     }
 
 @router.get("/dub_status")
-def get_dub_status(request: DubStatusRequest, db: Session = Depends(get_db)):
-    video_id = request.video_id
+def get_dub_status(video_id: str, db: Session = Depends(get_db)):
 
     row = db.query(DubStatus).filter(DubStatus.video_id == video_id).first()
     print("ROW_STATUS: ", row.status)
     if(row.status == "complete"):
         path = f"storage/videos/{video_id}/{video_id}_dubbed.mp4"
         if os.path.exists(path):
-            
+
             try:
                 db.delete(row)
                 db.commit()
@@ -68,7 +67,7 @@ def get_dub_status(request: DubStatusRequest, db: Session = Depends(get_db)):
 
             return {
                 "status": "success",
-                "video_path": path
+                "video_path": f"http://localhost:8000/storage/videos/{video_id}/{video_id}_dubbed.mp4"
             }
     return {
         "status": row.status
