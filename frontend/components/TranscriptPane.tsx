@@ -81,26 +81,28 @@ export function TranscriptPane ({
     // console.log(changes)
     return (
         <div className="w-full">
-            <div className="flex flex-col md:flex-row gap-2 mx-4">
+            <div className="flex flex-col md:flex-row gap-2 mx-4 mb-4 justify-between border border-white">
                 <h2 className="text-md">
                     Original Transcript
                 </h2>
 
-                <div className="flex flex-row gap-2">
+                <div className="border border-white flex flex-row gap-2">
                     <Chip size="sm" color="accent" variant="secondary" className="rounded-3xl"> { NLLB_CODE_TO_NAME[transcript?.src_lang] } </Chip>
                     <Chip size="sm" color="accent" variant="secondary" className="rounded-3xl">Accuracy: { formattedAccuracy }% </Chip>
                 </div>
             </div>
             <ScrollShadow hideScrollBar className="max-h-120">
-                {
-                    transcript?.segments?.map((segment, index) => (
-                        <TranscriptField
-                            key={index}
-                            segments={segment}
-                            onValueChanged={(newText: string) => handleUpdate(index, newText)}
-                        />
-                    ))
-                }
+                <div className="flex flex-col gap-4 mb-4">
+                    {
+                        transcript?.segments?.map((segment, index) => (
+                            <TranscriptField
+                                key={index}
+                                segments={segment}
+                                onValueChanged={(newText: string) => handleUpdate(index, newText)}
+                            />
+                        ))
+                    }
+                </div>
             </ScrollShadow>
             <div>
                 <Select placeholder="Select One" onChange={(value) => setLanguage(value)}>

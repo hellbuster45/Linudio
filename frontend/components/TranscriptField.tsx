@@ -12,7 +12,7 @@ export const TranscriptField = memo(({ segments, onValueChanged }: { segments: S
             clearTimeout(timerRef.current);
         }
 
-        // Set new timer to update parent after 500ms of no typing
+        // Set new timer to update parent after of no typing
         timerRef.current = setTimeout(() => {
             onValueChanged(newText);
         }, 2);

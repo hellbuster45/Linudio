@@ -72,7 +72,7 @@ export function TranslatedPane ({
 
     return (
         <div className="w-full">
-            <div className="flex flex-col md:flex-row gap-2 mx-4">
+            <div className="flex flex-col md:flex-row gap-2 mx-4 mb-4 justify-between">
                 <h2 className="text-md">
                     Translated Transcript
                 </h2>
@@ -82,15 +82,17 @@ export function TranslatedPane ({
                 </div>
             </div>
             <ScrollShadow hideScrollBar className="max-h-120">
-                {
-                    translated?.translated_segments?.map((segment, index) => (
-                        <TranscriptField
-                            key={index}
-                            segments={segment}
-                            onValueChanged={(newText: string) => handleUpdate(index, newText)}
-                        />
-                    ))
-                }
+                <div className="flex flex-col gap-4 mb-4">
+                    {
+                        translated?.translated_segments?.map((segment, index) => (
+                            <TranscriptField
+                                key={index}
+                                segments={segment}
+                                onValueChanged={(newText: string) => handleUpdate(index, newText)}
+                            />
+                        ))
+                    }
+                </div>
             </ScrollShadow>
 
             <div className=" w-full md:w-auto flex flex-col md:flex-row gap-2 mt-2">
