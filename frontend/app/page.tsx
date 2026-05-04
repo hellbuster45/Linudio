@@ -3,8 +3,8 @@ import { FetchVideo } from "@/components/FetchVideo";
 import { TranscriptPane } from "@/components/TranscriptPane";
 import { TranslatedPane } from "@/components/TranslatedPane";
 import { VideoCard } from "@/components/VideoCard";
-import { Button, Separator, Spinner } from "@heroui/react";
-import { useEffect, useState } from "react";
+import { Button, Card, Separator, Spinner, toast, Toast } from "@heroui/react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
@@ -20,10 +20,17 @@ export default function Home() {
   const [originalTranslated, setOriginalTranslated] = useState<any>(null);
 
   const [dubStarted, setDubStarted] = useState<any>(false);
-  const [dubStatus, setDubStatus] = useState<any>(null);
+  const [dubStatus, setDubStatus] = useState<string | null>(null);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
 
+  const dubStatusRef = useRef<string | null>(null);
+  const setDubStatusRef = (s: string | null) => {
+    dubStatusRef.current = s;
+    setDubStatus(s);
+  };
+
   const handleData = (data: any) => {
+    toast.success("Video Fetched !");
     setMetadata(data);
     setVideoID(data.video_id);
   };
@@ -84,14 +91,14 @@ export default function Home() {
       const response = await fetch(`http://localhost:8000/text_to_speech/dub_status?video_id=${v_id}`);
       const data = await response.json();
 
-      setDubStatus(data.status);
+      setDubStatusRef(data.status);
+      console.log("DUB RESPONSE: ", data);
+      console.log("CURRENT DUB STATUS", data.status);
+      console.log("STATUS IN WEBSITE (ref): ", dubStatusRef.current);
 
-      if (data.status === "complete") {
-        setFinalVideoUrl(data.video_url); // Use the URL we mounted in FastAPI
-        setDubStatus(null); // Stop polling
-        return true; // Success
+      if(dubStatusRef.current === "success") {
+        setFinalVideoUrl(data.video_path);
       }
-      return false; // Still processing
     } catch (err) {
       console.error("Polling error", err);
       return true; // Stop on error
@@ -101,13 +108,13 @@ export default function Home() {
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (dubStarted) {
-      setDubStatus("Initializing...");
+    if (dubStarted && dubStatusRef.current !== "success") {
+      setDubStatusRef("Initializing...");
       
       interval = setInterval(async () => {
         const isDone = await pollDubStatus(video_id!);
         if (isDone) clearInterval(interval);
-      }, 10000); // Poll every 3 seconds
+      }, 10000);
     }
 
     return () => clearInterval(interval);
@@ -115,7 +122,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background font-sans selection:bg-accent/30">
-      <div className="max-w-[95%] mx-auto px-4 py-12 flex flex-col items-center gap-12 border border-white">
+      <Toast.Provider placement="top" />
+      <div className="max-w-[95%] mx-auto px-4 py-12 flex flex-col items-center gap-12">
 
         {/* --- Header Section --- */}
         <motion.div
@@ -161,27 +169,11 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* --- Final Video Display --- */}
-        {finalVideoUrl && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl border border-primary/20"
-          >
-            <video controls className="w-full">
-              <source src={finalVideoUrl} type="video/mp4" />
-            </video>
-            <div className="p-4 bg-zinc-900 text-center">
-              <p className="text-success font-bold">Dubbing Complete!</p>
-            </div>
-          </motion.div>
-        )}
-
         {/* --- Polling Status Overlay --- */}
-        {dubStatus && (
+        {!finalVideoUrl && dubStatus && (
           <div className="fixed bottom-10 right-10 z-50">
             <div className="bg-zinc-900 border border-white/10 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
-              <Spinner color="current" />
+              <Spinner color="current" /> 
               <div className="text-center">
                 <p className="font-bold capitalize">{dubStatus.replace('_', ' ')}</p>
                 <p className="text-xs text-muted-foreground">Please keep this tab open</p>
@@ -243,6 +235,29 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* --- Final Video Display --- */}
+        {finalVideoUrl && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-4xl rounded-xl overflow-hidden shadow-2xl"
+          >
+            <Card>
+              {/* <Card.Header>
+                <Card.Title className="text-2xl text-success">Dubbing Complete !</Card.Title>
+              </Card.Header> */}
+              <video controls className="w-full rounded-xl">
+                <source src={finalVideoUrl} type="video/mp4" />
+              </video>
+              <Card.Footer>
+                <Button>
+                  Download Button
+                </Button>
+              </Card.Footer>
+            </Card>
+          </motion.div>
+        )}
       </div>
     </main>
   );

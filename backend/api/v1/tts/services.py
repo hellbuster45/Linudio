@@ -4,7 +4,7 @@ from .models import DubStatus
 
 NLLB_TO_MELO = {
     "eng_Latn": "EN", "spa_Latn": "ES", "fra_Latn": "FR",
-    "zho_Hans": "ZH", "jpn_Jpan": "JP", "kor_Kore": "KR"
+    "zho_Hans": "ZH", "jpn_Jpan": "JP", "kor_Hang": "KR"
 }
 
 STORAGE_ROOT = "storage/videos"
@@ -19,65 +19,68 @@ def update_status(video_id: str, progress_state: str, db):
         raise e
 
 async def process_dubbing(video_id: str, segments: list, nllb_lang_code: str, db):
-    start_total = time.time()
-    print(f"\n--- [START] Processing Dubbing: {video_id} ---")
-    
-    try:
-        video_dir = os.path.join(STORAGE_ROOT, video_id)
-        temp_dir = os.path.join(video_dir, "temp_dubs")
+    job_row = db.query(DubStatus).filter(DubStatus.video_id == video_id, DubStatus.status == "pending").first()
+    print("\n\nIS THERE ANY PENDING JOB FOR THIS VIDEO_ID?????: ", job_row.status, "\n\n")
+    if job_row:
+        start_total = time.time()
+        print(f"\n--- [START] Processing Dubbing: {video_id} ---")
+        
+        try:
+            video_dir = os.path.join(STORAGE_ROOT, video_id)
+            temp_dir = os.path.join(video_dir, "temp_dubs")
 
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-        os.makedirs(temp_dir, exist_ok=True)
-        
-        update_status(video_id, 'seperation', db)
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            update_status(video_id, 'seperation', db)
 
-        # 1. AUDIO SEPARATION
-        print(f"\n[STEP 1/3] AUDIO SEPARATION")
-        bgm_path = await separate_audio(video_id, video_dir)
-        if not bgm_path or not os.path.exists(bgm_path):
-            print(f"[CRITICAL] Separation failed.")
-            return
-        
-        update_status(video_id, 'tts_generation', db)
+            # 1. AUDIO SEPARATION
+            print(f"\n[STEP 1/3] AUDIO SEPARATION")
+            bgm_path = await separate_audio(video_id, video_dir)
+            if not bgm_path or not os.path.exists(bgm_path):
+                print(f"[CRITICAL] Separation failed.")
+                return
+            
+            update_status(video_id, 'tts_generation', db)
 
-        # 2. EFFICIENT BATCH TTS GENERATION
-        print(f"\n[STEP 2/3] BATCH TTS GENERATION")
-        melo_lang = NLLB_TO_MELO.get(nllb_lang_code, "EN")
-        
-        # Prepare segment data for the worker
-        batch_data = [{"id": s.id, "text": s.text} for s in segments]
-        batch_file = os.path.join(temp_dir, "batch_segments.json")
-        with open(batch_file, "w", encoding="utf-8") as f:
-            json.dump(batch_data, f, ensure_ascii=False)
+            # 2. EFFICIENT BATCH TTS GENERATION
+            print(f"\n[STEP 2/3] BATCH TTS GENERATION")
+            melo_lang = NLLB_TO_MELO.get(nllb_lang_code, "EN")
+            
+            # Prepare segment data for the worker
+            batch_data = [{"id": s.id, "text": s.text} for s in segments]
+            batch_file = os.path.join(temp_dir, "batch_segments.json")
+            with open(batch_file, "w", encoding="utf-8") as f:
+                json.dump(batch_data, f, ensure_ascii=False)
 
-        # Call worker ONCE for the whole video
-        tts_cmd = ["python", "api/v1/tts/tts_worker.py", batch_file, melo_lang, temp_dir]
-        rc = await run_shell_cmd(tts_cmd, "Batch-TTS-Worker")
-        
-        dubbed_files = []
-        if rc == 0:
-            print("[DEBUG] Batch TTS successful. Starting individual duration syncs...")
-            for seg in segments:
-                seg_path = os.path.join(temp_dir, f"seg_{seg.id}.wav")
-                if os.path.exists(seg_path):
-                    target_dur = seg.end_time - seg.start_time
-                    await sync_duration(seg_path, target_dur)
-                    dubbed_files.append(seg_path)
-        else:
-            print(f"[ERROR] Batch TTS failed with code {rc}")
-            return
+            # Call worker ONCE for the whole video
+            tts_cmd = ["python", "api/v1/tts/tts_worker.py", batch_file, melo_lang, temp_dir]
+            rc = await run_shell_cmd(tts_cmd, "Batch-TTS-Worker")
+            
+            dubbed_files = []
+            if rc == 0:
+                print("[DEBUG] Batch TTS successful. Starting individual duration syncs...")
+                for seg in segments:
+                    seg_path = os.path.join(temp_dir, f"seg_{seg.id}.wav")
+                    if os.path.exists(seg_path):
+                        target_dur = seg.end_time - seg.start_time
+                        await sync_duration(seg_path, target_dur)
+                        dubbed_files.append(seg_path)
+            else:
+                print(f"[ERROR] Batch TTS failed with code {rc}")
+                return
 
-        # 3. FINAL MIX & MUX
-        print(f"\n[STEP 3/3] FINAL ASSEMBLY")
-        if dubbed_files:
-            await assemble_final_output(video_id, dubbed_files, bgm_path, video_dir)
-        
-        print(f"\n--- [FINISH] Total Time: {time.time() - start_total:.2f}s ---")
-        
-        update_status(video_id, 'complete', db)
-    except Exception:
-        print(f"\n[CRITICAL ERROR] Pipeline Crashed:\n{traceback.format_exc()}")
+            # 3. FINAL MIX & MUX
+            print(f"\n[STEP 3/3] FINAL ASSEMBLY")
+            if dubbed_files:
+                await assemble_final_output(video_id, dubbed_files, bgm_path, video_dir)
+            
+            print(f"\n--- [FINISH] Total Time: {time.time() - start_total:.2f}s ---")
+            
+            update_status(video_id, 'complete', db)
+        except Exception:
+            print(f"\n[CRITICAL ERROR] Pipeline Crashed:\n{traceback.format_exc()}")
 
 async def sync_duration(path, target_dur):
     """Calculates drift and applies atempo filter if needed."""

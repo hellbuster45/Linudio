@@ -67,7 +67,7 @@ def get_dub_status(video_id: str, db: Session = Depends(get_db)):
 
             return {
                 "status": "success",
-                "video_path": f"http://localhost:8000/storage/videos/{video_id}/{video_id}_dubbed.mp4"
+                "video_path": f"http://localhost:8000/storage/{video_id}/{video_id}_dubbed.mp4"
             }
     return {
         "status": row.status

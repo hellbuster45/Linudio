@@ -201,31 +201,12 @@ export const WHISPER_TO_NLLB: Record<string, string> = {
 }
 
 export const NLLB_CODE_TO_NAME: Record<string, string> = {
-    "hin_Deva": "Hindi",
     "eng_Latn": "English",
     "spa_Latn": "Spanish",
     "fra_Latn": "French",
-    "deu_Latn": "German",
     "jpn_Jpan": "Japanese",
     "kor_Hang": "Korean",
     "zho_Hans": "Chinese Simplified",
-    "zho_Hant": "Chinese Traditional",
-    "rus_Cyrl": "Russian",
-    "ben_Beng": "Bengali",
-    "mar_Deva": "Marathi",
-    "tel_Telu": "Telugu",
-    "tam_Taml": "Tamil",
-    "guj_Gujr": "Gujarati",
-    "urd_Arab": "Urdu",
-    "kan_Knda": "Kannada",
-    "mal_Mlym": "Malayalam",
-    "pan_Guru": "Punjabi",
-    "ita_Latn": "Italian",
-    "por_Latn": "Portuguese",
-    "vie_Latn": "Vietnamese",
-    "ind_Latn": "Indonesian",
-    "tha_Thai": "Thai",
-    "tur_Latn": "Turkish"
 }
 
 export const NAME_TO_NLLB_CODE: Record<string, string> = {
