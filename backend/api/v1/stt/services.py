@@ -43,7 +43,14 @@ def transcribe_audio(video_id, db):
         start_time = time.time()
         
         # Whisper processes the mono file found in your stored audio_path
-        segments, info = model.transcribe(mono_file, beam_size=5) 
+        segments, info = model.transcribe(
+            mono_file,
+            beam_size=7,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+            no_speech_threshold=0.7,
+            compression_ratio_threshold=2.4
+        ) 
         
         result = []
         for segment in segments: 

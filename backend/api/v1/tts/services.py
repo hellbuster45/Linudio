@@ -20,7 +20,6 @@ def update_status(video_id: str, progress_state: str, db):
 
 async def process_dubbing(video_id: str, segments: list, nllb_lang_code: str, db):
     job_row = db.query(DubStatus).filter(DubStatus.video_id == video_id, DubStatus.status == "pending").first()
-    print("\n\nIS THERE ANY PENDING JOB FOR THIS VIDEO_ID?????: ", job_row.status, "\n\n")
     if job_row:
         start_total = time.time()
         print(f"\n--- [START] Processing Dubbing: {video_id} ---")
@@ -37,44 +36,46 @@ async def process_dubbing(video_id: str, segments: list, nllb_lang_code: str, db
 
             # 1. AUDIO SEPARATION
             print(f"\n[STEP 1/3] AUDIO SEPARATION")
-            bgm_path = await separate_audio(video_id, video_dir)
-            if not bgm_path or not os.path.exists(bgm_path):
-                print(f"[CRITICAL] Separation failed.")
-                return
+            # bgm_path = await separate_audio(video_id, video_dir)
+            # if not bgm_path or not os.path.exists(bgm_path):
+            #     print(f"[CRITICAL] Separation failed.")
+            #     return
             
+            bgm_path = os.path.join(video_dir, f"{video_id}/{video_id}_bgm_final.wav")
+            
+            # bgm_path = os.path.join(video_dir, f"{video_id}_bgm_final.wav")
             update_status(video_id, 'tts_generation', db)
 
             # 2. EFFICIENT BATCH TTS GENERATION
             print(f"\n[STEP 2/3] BATCH TTS GENERATION")
             melo_lang = NLLB_TO_MELO.get(nllb_lang_code, "EN")
             
-            # Prepare segment data for the worker
             batch_data = [{"id": s.id, "text": s.text} for s in segments]
             batch_file = os.path.join(temp_dir, "batch_segments.json")
             with open(batch_file, "w", encoding="utf-8") as f:
                 json.dump(batch_data, f, ensure_ascii=False)
 
-            # Call worker ONCE for the whole video
             tts_cmd = ["python", "api/v1/tts/tts_worker.py", batch_file, melo_lang, temp_dir]
             rc = await run_shell_cmd(tts_cmd, "Batch-TTS-Worker")
             
-            dubbed_files = []
             if rc == 0:
                 print("[DEBUG] Batch TTS successful. Starting individual duration syncs...")
                 for seg in segments:
                     seg_path = os.path.join(temp_dir, f"seg_{seg.id}.wav")
                     if os.path.exists(seg_path):
                         target_dur = seg.end_time - seg.start_time
+                        # This modifies the file on disk, keeping the object-id link intact
                         await sync_duration(seg_path, target_dur)
-                        dubbed_files.append(seg_path)
             else:
                 print(f"[ERROR] Batch TTS failed with code {rc}")
                 return
 
             # 3. FINAL MIX & MUX
             print(f"\n[STEP 3/3] FINAL ASSEMBLY")
-            if dubbed_files:
-                await assemble_final_output(video_id, dubbed_files, bgm_path, video_dir)
+            
+            # CRITICAL FIX: Pass 'segments' (the list of objects), 
+            # NOT 'dubbed_files' (which was a list of strings).
+            await assemble_final_output(video_id, segments, bgm_path, video_dir)
             
             print(f"\n--- [FINISH] Total Time: {time.time() - start_total:.2f}s ---")
             
@@ -141,6 +142,71 @@ async def separate_audio(video_id, video_dir):
     print("[ERROR] Could not locate the separated background file in the directory.")
     return None
 
+async def assemble_final_output(video_id: str, segments: list, bgm_path: str, video_dir: str):
+    video_dir = os.path.abspath(video_dir)
+    voice_only = os.path.join(video_dir, "translated_vocals.wav")
+    mixed_audio = os.path.join(video_dir, "final_mix.wav")
+    original_video = os.path.join(video_dir, f"{video_id}_video.mp4")
+    final_output = os.path.join(video_dir, f"{video_id}_dubbed.mp4")
+    temp_dir = os.path.abspath(os.path.join(video_dir, "temp_dubs"))
+
+    input_args = []
+    filter_parts = []
+    input_count = 0
+    
+    # 1. BUILD INPUTS AND FILTERS
+    for seg in segments:
+        seg_path = os.path.join(temp_dir, f"seg_{seg.id}.wav")
+        
+        if os.path.exists(seg_path):
+            delay_ms = int(seg.start_time * 1000)
+            # Use absolute paths and ensure they are ready for shell
+            input_args.extend(["-i", f'"{seg_path}"'])
+            filter_parts.append(f"[{input_count}:a]volume=2.5,adelay={delay_ms}|{delay_ms}[v{input_count}];")
+            input_count += 1
+
+    if input_count == 0:
+        print("[ERROR] No segment files found in temp_dubs!")
+        return
+
+    merge_labels = "".join([f"[v{i}]" for i in range(input_count)])
+    # The filter MUST be wrapped in double quotes for Windows shell
+    # complex_filter = f"\"{''.join(filter_parts)}{merge_labels}amix=inputs={input_count}:dropout_transition=0[voice]\""
+    complex_filter = f"\"{''.join(filter_parts)}{merge_labels}amix=inputs={input_count}:duration=longest:dropout_transition=0:normalize=0[voice]\""
+
+    # 2. STEP A: CREATE ALIGNED VOCALS
+    print(f"[ASSEMBLY] Creating merged vocals: {voice_only}")
+    # We build the string manually to ensure quotes are exactly where they need to be
+    # align_cmd = f"ffmpeg -y {' '.join(input_args)} -filter_complex {complex_filter} -map [voice] \"{voice_only}\""
+    align_cmd = f"ffmpeg -y {' '.join(input_args)} -filter_complex {complex_filter} -map [voice] \"{voice_only}\""
+    
+    # Use create_subprocess_shell directly to avoid list-to-string issues
+    process = await asyncio.create_subprocess_shell(
+        align_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    await process.communicate()
+
+    # 3. STEP B: MIX WITH BGM
+    if os.path.exists(voice_only):
+        print(f"[ASSEMBLY] Mixing with BGM...")
+        mix_filter = "\" [0:a]volume=1.2[v]; [1:a]volume=0.4[bg]; [v][bg]amix=inputs=2:duration=longest:normalize=0[out] \""
+        # mix_cmd = f"ffmpeg -y -i \"{voice_only}\" -i \"{bgm_path}\" -filter_complex \"amix=inputs=2:duration=longest:dropout_transition=0\" \"{mixed_audio}\""
+        mix_cmd = f"ffmpeg -y -i \"{voice_only}\" -i \"{bgm_path}\" -filter_complex {mix_filter} -map \"[out]\" \"{mixed_audio}\""
+        process = await asyncio.create_subprocess_shell(mix_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+    else:
+        print(f"[ERROR] voice_only file was never created. Check FFmpeg logs.")
+        return
+
+    # 4. STEP C: MUX
+    if os.path.exists(mixed_audio):
+        print(f"[ASSEMBLY] Final Muxing...")
+        mux_cmd = f"ffmpeg -y -i \"{original_video}\" -i \"{mixed_audio}\" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -shortest \"{final_output}\""
+        process = await asyncio.create_subprocess_shell(mux_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+
 # async def assemble_final_output(video_id, files, bgm_path, video_dir):
 #     # Concat list creation
 #     list_path = os.path.join(video_dir, "concat_list.txt")
@@ -160,45 +226,45 @@ async def separate_audio(video_id, video_dir):
 #     # 3. Mux
 #     await run_shell_cmd(["ffmpeg", "-y", "-i", original_video, "-i", mixed_audio, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-shortest", final_output], "Final-Mux")
 
-async def assemble_final_output(video_id, files, bgm_path, video_dir):
-    # Concat list creation
-    list_path = os.path.join(video_dir, "concat_list.txt")
-    with open(list_path, "w", encoding="utf-8") as f:
-        for f_path in files:
-            # Use forward slashes for FFmpeg list paths to avoid Windows backslash escapes
-            normalized_path = os.path.abspath(f_path).replace("\\", "/")
-            f.write(f"file '{normalized_path}'\n")
+# async def assemble_final_output(video_id, files, bgm_path, video_dir):
+#     # Concat list creation
+#     list_path = os.path.join(video_dir, "concat_list.txt")
+#     with open(list_path, "w", encoding="utf-8") as f:
+#         for f_path in files:
+#             # Use forward slashes for FFmpeg list paths to avoid Windows backslash escapes
+#             normalized_path = os.path.abspath(f_path).replace("\\", "/")
+#             f.write(f"file '{normalized_path}'\n")
     
-    voice_only = os.path.join(video_dir, "translated_vocals.wav")
-    mixed_audio = os.path.join(video_dir, "final_mix.wav")
-    original_video = os.path.join(video_dir, f"{video_id}_video.mp4")
-    final_output = os.path.join(video_dir, f"{video_id}_dubbed.mp4")
+#     voice_only = os.path.join(video_dir, "translated_vocals.wav")
+#     mixed_audio = os.path.join(video_dir, "final_mix.wav")
+#     original_video = os.path.join(video_dir, f"{video_id}_video.mp4")
+#     final_output = os.path.join(video_dir, f"{video_id}_dubbed.mp4")
 
-    # 1. Concat translated segments
-    await run_shell_cmd(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", voice_only], "Final-Concat")
+#     # 1. Concat translated segments
+#     await run_shell_cmd(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", voice_only], "Final-Concat")
 
-    # 2. Mix with BGM (Normalization added to keep volume levels high)
-    # amix=dropout_transition=0 prevents audio from cutting out if one stream is slightly shorter
-    await run_shell_cmd([
-        "ffmpeg", "-y", "-i", voice_only, "-i", bgm_path, 
-        "-filter_complex", "amix=inputs=2:duration=first:dropout_transition=0,volume=2", 
-        mixed_audio
-    ], "Final-Mix")
+#     # 2. Mix with BGM (Normalization added to keep volume levels high)
+#     # amix=dropout_transition=0 prevents audio from cutting out if one stream is slightly shorter
+#     await run_shell_cmd([
+#         "ffmpeg", "-y", "-i", voice_only, "-i", bgm_path, 
+#         "-filter_complex", "amix=inputs=2:duration=first:dropout_transition=0,volume=2", 
+#         mixed_audio
+#     ], "Final-Mix")
 
-    # 3. Mux with Video - THE FIX
-    # We MUST encode to 'aac' because .mp4 containers don't like .wav (pcm) streams
-    await run_shell_cmd([
-        "ffmpeg", "-y", 
-        "-i", original_video, 
-        "-i", mixed_audio, 
-        "-map", "0:v:0",    # Take video from original
-        "-map", "1:a:0",    # Take audio from the new mix
-        "-c:v", "copy",     # Don't re-encode video (fast)
-        "-c:a", "aac",      # Encode audio to AAC for MP4 compatibility
-        "-b:a", "192k",     # Good quality bitrate
-        "-shortest",        # End when video ends
-        final_output
-    ], "Final-Mux")
+#     # 3. Mux with Video - THE FIX
+#     # We MUST encode to 'aac' because .mp4 containers don't like .wav (pcm) streams
+#     await run_shell_cmd([
+#         "ffmpeg", "-y", 
+#         "-i", original_video, 
+#         "-i", mixed_audio, 
+#         "-map", "0:v:0",    # Take video from original
+#         "-map", "1:a:0",    # Take audio from the new mix
+#         "-c:v", "copy",     # Don't re-encode video (fast)
+#         "-c:a", "aac",      # Encode audio to AAC for MP4 compatibility
+#         "-b:a", "192k",     # Good quality bitrate
+#         "-shortest",        # End when video ends
+#         final_output
+#     ], "Final-Mux")
 
 async def run_shell_cmd(cmd_list, task_name):
     """Executes shell commands and streams output to console in real-time."""
@@ -214,14 +280,14 @@ async def run_shell_cmd(cmd_list, task_name):
         cmd_str,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=env  # <--- Add this
+        env=env
     )
 
     async def stream_output(stream, prefix):
         while True:
             line = await stream.readline()
             if not line: break
-            # Print output so you can see if the tool (FFmpeg/Separator) is actually moving
+            # Print output (FFmpeg/Separator)
             print(f"      [{prefix}] {line.decode(errors='replace').strip()}")
 
     # Gather handles both streams without blocking

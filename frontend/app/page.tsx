@@ -244,9 +244,9 @@ export default function Home() {
             className="w-full max-w-4xl rounded-xl overflow-hidden shadow-2xl"
           >
             <Card>
-              {/* <Card.Header>
-                <Card.Title className="text-2xl text-success">Dubbing Complete !</Card.Title>
-              </Card.Header> */}
+              <Card.Header>
+                <Card.Title className="text-2xl text-accent">Dubbing Complete !</Card.Title>
+              </Card.Header>
               <video controls className="w-full rounded-xl">
                 <source src={finalVideoUrl} type="video/mp4" />
               </video>

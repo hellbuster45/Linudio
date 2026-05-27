@@ -1,9 +1,26 @@
 import { useState } from "react";
 import Image from "next/image";
-import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Separator, Spinner } from "@heroui/react";
+import { Button, Card, CardFooter, CardHeader, CardTitle, Separator, Spinner } from "@heroui/react";
 
 export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, onTranscriptFetched: (data: any) => void }) {
     const [loading, setLoading] = useState(false);
+
+    // Helper to format "20181025" -> "Oct 25, 2018"
+    const formatUploadDate = (dateStr: string) => {
+        if (!dateStr || dateStr.length !== 8) return dateStr;
+
+        const year = parseInt(dateStr.substring(0, 4));
+        const month = parseInt(dateStr.substring(4, 6)) - 1; // JS months are 0-indexed
+        const day = parseInt(dateStr.substring(6, 8));
+
+        const date = new Date(year, month, day);
+
+        return new Intl.DateTimeFormat("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+        }).format(date);
+    };
 
     const handleFetch = async () => {
         setLoading(true);
@@ -11,15 +28,14 @@ export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, on
         try {
             const response = await fetch("http://localhost:8000/synthesize/", {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ video_id })
             });
 
             const data = await response.json();
             onTranscriptFetched(data);
-        } catch(error) {
-            console.log("TRANSCRIPTION FETCH ERROR");
-            console.error(error);
+        } catch (error) {
+            console.error("TRANSCRIPTION FETCH ERROR:", error);
         } finally {
             setLoading(false);
         }
@@ -30,34 +46,35 @@ export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, on
             <CardHeader>
                 <CardTitle className="flex flex-col gap-2">
                     <Image
-                        src={ metadata?.thumbnail }
+                        src={metadata?.thumbnail}
                         className="rounded-xl w-full"
                         alt="thumbnail"
-                        width={"400"}
-                        height={"300"}
+                        width={400} // Removed quotes, Next.js Image expects numbers
+                        height={300}
                     />
-                    <p className="md:text-xl">
-                        { metadata?.title }
+                    <p className="md:text-xl font-semibold">
+                        {metadata?.title}
                     </p>
                 </CardTitle>
             </CardHeader>
-            <div className="flex flex-row gap-2 text-muted">
-                { metadata?.resolution }
-                <Separator orientation="vertical"/>
-                { metadata?.upload_date }
+
+            {/* Metadata bar with better alignment */}
+            <div className="flex flex-row items-center gap-3 text-muted">
+                <span>Upload Date: {formatUploadDate(metadata?.upload_date)}</span>
+                <Separator orientation="vertical" className="h-4" />
+                <span>Resolution: {metadata?.resolution}</span>
             </div>
-            <CardFooter className="flex flex-row justify-center">
-                {
-                    !loading ? (
-                        <Button onClick={() => handleFetch()}> Start Transcription </Button>
-                    ) : (
-                        <Button isDisabled>
-                            <Spinner color="current" />
-                            Processing..
-                        </Button>
-                    )
-                }
+
+            <CardFooter className="flex flex-row justify-center pb-6">
+                {!loading ? (
+                    <Button onClick={handleFetch}> Start Transcription </Button>
+                ) : (
+                    <Button isDisabled>
+                        <Spinner color="current" size="sm" />
+                        Processing..
+                    </Button>
+                )}
             </CardFooter>
         </Card>
-    )
+    );
 }
