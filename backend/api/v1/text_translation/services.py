@@ -1,15 +1,29 @@
 from .models import Transcripts
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from sqlalchemy.exc import SQLAlchemyError
+from core.config import resolve_device
 from .models import Transcripts
 import torch, json
 
 model_name = "facebook/nllb-200-distilled-600M"
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-device = torch.device("cpu")
-model = model.to(device)
+model = None
+device = None
+
+def load_model(target_device: str = None):
+    """Loads (or reloads) the NLLB model onto the given device. Updates module globals."""
+    global model, device
+
+    target_device = target_device or resolve_device()
+    device = torch.device(target_device)
+    model_dtype = torch.float16 if device.type == "cuda" else torch.float32
+
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name, torch_dtype=model_dtype)
+    model = model.to(device)
+    return model
+
+load_model()
 
 async def translate_text(video_id: str, db, text: list=None, tgt_lang: str="hin_Deva"):
     try:

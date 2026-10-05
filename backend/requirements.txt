@@ -19,10 +19,28 @@ yt-dlp>=2024.3.10
 # Speech / ML
 faster-whisper>=1.0.1
 transformers>=4.30.0
-torch>=2.2.0
+# torch is intentionally NOT pinned here — install it separately before this file, see below.
 melo>=0.1.0
+audio-separator>=0.17.2
 
 # Notes:
 # - ffmpeg and ffprobe are required as system binaries (not Python packages).
 # - Some packages (pydantic, starlette) are pulled in by fastapi.
 # - If additional features are needed (e.g., audio separation, movie editing), add packages like "audio-separator" or "moviepy" as required.
+#
+# --- Installing torch (CPU vs GPU) ---
+# This project runs on CPU by default (DEVICE=cpu in .env) and does NOT require a GPU.
+# torch is left unpinned above because the correct build depends on your hardware:
+#
+#   CPU only (default, works everywhere):
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+#
+#   NVIDIA GPU (CUDA 12.1 example — check https://pytorch.org/get-started/locally/
+#   for the CUDA version matching your installed NVIDIA driver):
+#     pip install torch --index-url https://download.pytorch.org/whl/cu121
+#
+# Install torch FIRST using one of the commands above, then run:
+#     pip install -r requirements.txt
+#
+# `audio-separator` also auto-installs `onnxruntime` (CPU) by default; for GPU-accelerated
+# audio separation, install `onnxruntime-gpu` instead (see audio-separator's own docs).

@@ -1,4 +1,5 @@
 'use client'
+import { DeviceSelector } from "@/components/DeviceSelector";
 import { FetchVideo } from "@/components/FetchVideo";
 import { TranscriptPane } from "@/components/TranscriptPane";
 import { TranslatedPane } from "@/components/TranslatedPane";
@@ -139,20 +140,23 @@ export default function Home() {
           </p>
 
           {!started && (
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              whileHover={{ scale: 1.05 }}
-            >
-              <Button
-                size="lg"
-                variant="primary"
-                className="mt-6 font-bold px-12 rounded-full"
-                onClick={() => setStarted(true)}
+            <div className="mt-6 flex flex-col items-center justify-center gap-3">
+              <DeviceSelector />
+              <motion.div
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                whileHover={{ scale: 1.05 }}
               >
-                Get Started
-              </Button>
-            </motion.div>
+                <Button
+                  size="lg"
+                  variant="primary"
+                  className="font-bold px-12 rounded-full"
+                  onClick={() => setStarted(true)}
+                >
+                  Get Started
+                </Button>
+              </motion.div>
+            </div>
           )}
         </motion.div>
 

@@ -35,6 +35,3 @@ async def get_video(video_url, db, metadata):
         }
     else:
         return {"message": "Success"}
-
-def start_transcript_generation(audio_file_path: str):
-    pass

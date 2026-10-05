@@ -1,5 +1,6 @@
-import os, asyncio, shutil, traceback, time, json
+import os, sys, asyncio, shutil, traceback, time, json
 from sqlalchemy.exc import SQLAlchemyError
+from core.config import settings
 from .models import DubStatus
 
 NLLB_TO_MELO = {
@@ -8,6 +9,68 @@ NLLB_TO_MELO = {
 }
 
 STORAGE_ROOT = "storage/videos"
+
+# --- Persistent TTS worker ---
+# tts_worker.py's torch/melo import takes ~20s; spawning a fresh subprocess per dub job
+# pays that cost every time. Instead we keep one long-lived worker process alive across
+# jobs (started lazily, on first use) and talk to it via a JSON-line stdin/stdout protocol.
+# Only one job is sent at a time (_worker_lock) since one worker process can't safely run
+# two TTS generations concurrently — dubbing is already processed sequentially today anyway.
+_worker_process = None
+_worker_lock = asyncio.Lock()
+
+async def _start_worker():
+    global _worker_process
+    worker_path = os.path.join(os.path.dirname(__file__), "tts_worker.py")
+    _worker_process = await asyncio.create_subprocess_exec(
+        "python", worker_path, "--serve",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    asyncio.create_task(_drain_stderr(_worker_process))
+
+async def _drain_stderr(process):
+    """Continuously reads the worker's stderr so its pipe never fills up and blocks it."""
+    while True:
+        line = await process.stderr.readline()
+        if not line:
+            break
+        print(f"      [TTS-WORKER] {line.decode(errors='replace').rstrip()}")
+
+async def run_tts_job(batch_file: str, lang: str, output_dir: str, device: str) -> bool:
+    """Sends one TTS job to the persistent worker, restarting it first if it's dead. Returns True on success."""
+    global _worker_process
+
+    async with _worker_lock:
+        if _worker_process is None or _worker_process.returncode is not None:
+            print("[TTS-WORKER] Starting persistent worker process...")
+            await _start_worker()
+
+        job = json.dumps({
+            "batch_file": batch_file,
+            "lang": lang,
+            "output_dir": output_dir,
+            "device": device,
+        })
+
+        try:
+            _worker_process.stdin.write((job + "\n").encode("utf-8"))
+            await _worker_process.stdin.drain()
+
+            response_line = await _worker_process.stdout.readline()
+            if not response_line:
+                print("[TTS-WORKER] Worker closed its stdout unexpectedly (likely crashed).")
+                return False
+
+            result = json.loads(response_line.decode("utf-8"))
+            if result.get("status") != "ok":
+                print(f"[TTS-WORKER] Job failed:\n{result.get('message')}")
+                return False
+            return True
+        except (BrokenPipeError, ConnectionResetError):
+            print("[TTS-WORKER] Worker pipe broke (likely crashed). It will be restarted on the next job.")
+            return False
 
 def update_status(video_id: str, progress_state: str, db):
     try:
@@ -36,14 +99,11 @@ async def process_dubbing(video_id: str, segments: list, nllb_lang_code: str, db
 
             # 1. AUDIO SEPARATION
             print(f"\n[STEP 1/3] AUDIO SEPARATION")
-            # bgm_path = await separate_audio(video_id, video_dir)
-            # if not bgm_path or not os.path.exists(bgm_path):
-            #     print(f"[CRITICAL] Separation failed.")
-            #     return
-            
-            bgm_path = os.path.join(video_dir, f"{video_id}/{video_id}_bgm_final.wav")
-            
-            # bgm_path = os.path.join(video_dir, f"{video_id}_bgm_final.wav")
+            bgm_path = await separate_audio(video_id, video_dir)
+            if not bgm_path or not os.path.exists(bgm_path):
+                print(f"[CRITICAL] Separation failed.")
+                return
+
             update_status(video_id, 'tts_generation', db)
 
             # 2. EFFICIENT BATCH TTS GENERATION
@@ -55,10 +115,9 @@ async def process_dubbing(video_id: str, segments: list, nllb_lang_code: str, db
             with open(batch_file, "w", encoding="utf-8") as f:
                 json.dump(batch_data, f, ensure_ascii=False)
 
-            tts_cmd = ["python", "api/v1/tts/tts_worker.py", batch_file, melo_lang, temp_dir]
-            rc = await run_shell_cmd(tts_cmd, "Batch-TTS-Worker")
-            
-            if rc == 0:
+            tts_ok = await run_tts_job(batch_file, melo_lang, temp_dir, settings.DEVICE)
+
+            if tts_ok:
                 print("[DEBUG] Batch TTS successful. Starting individual duration syncs...")
                 for seg in segments:
                     seg_path = os.path.join(temp_dir, f"seg_{seg.id}.wav")
@@ -67,7 +126,7 @@ async def process_dubbing(video_id: str, segments: list, nllb_lang_code: str, db
                         # This modifies the file on disk, keeping the object-id link intact
                         await sync_duration(seg_path, target_dur)
             else:
-                print(f"[ERROR] Batch TTS failed with code {rc}")
+                print(f"[ERROR] Batch TTS failed")
                 return
 
             # 3. FINAL MIX & MUX
@@ -287,8 +346,13 @@ async def run_shell_cmd(cmd_list, task_name):
         while True:
             line = await stream.readline()
             if not line: break
-            # Print output (FFmpeg/Separator)
-            print(f"      [{prefix}] {line.decode(errors='replace').strip()}")
+            # Print output (FFmpeg/Separator). Subprocess output can contain characters
+            # (e.g. progress-bar glyphs) that Windows' console encoding can't display;
+            # encode/decode through the console's own encoding with replacement so a
+            # single unprintable character can't crash this draining loop.
+            text = line.decode(errors='replace').strip()
+            safe_text = text.encode(sys.stdout.encoding or "utf-8", errors="replace").decode(sys.stdout.encoding or "utf-8", errors="replace")
+            print(f"      [{prefix}] {safe_text}")
 
     # Gather handles both streams without blocking
     await asyncio.gather(

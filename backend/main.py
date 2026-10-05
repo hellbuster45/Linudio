@@ -5,6 +5,7 @@ from api.v1.stt.routes import router as synthesize_router
 from api.v1.text_translation.routes import router as translate_router
 from api.v1.videos.routes import router as video_router
 from api.v1.tts.routes import router as tts_router
+from api.v1.settings.routes import router as settings_router
 import sys, asyncio
 
 if sys.platform == 'win32':
@@ -25,6 +26,7 @@ app.include_router(video_router)
 app.include_router(synthesize_router)
 app.include_router(translate_router)
 app.include_router(tts_router)
+app.include_router(settings_router)
 
 app.mount("/storage", StaticFiles(directory="storage/videos"), name="videos")
 

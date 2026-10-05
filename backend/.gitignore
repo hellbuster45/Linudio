@@ -1,6 +1,16 @@
+# Secrets / local config
 .env
+cookies.txt
+
+# Python
 __pycache__/
 *.pyc
-storage
-venv
-cookies.txt
+venv/
+.venv/
+
+# Downloaded videos, audio, generated storage (user data, not source)
+storage/
+
+# Scratch space for ad-hoc test files, debug payloads, temporary outputs.
+# Anything written here is throwaway and never meant to be committed.
+scratch/
