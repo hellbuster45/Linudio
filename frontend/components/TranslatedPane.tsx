@@ -1,6 +1,7 @@
 'use client'
 import { Button, Chip, ScrollShadow, Spinner } from "@heroui/react";
 import { TranscriptField } from "./TranscriptField";
+import { ExportButton } from "./ExportButton";
 import { NLLB_CODE_TO_NAME } from "@/lib/constants";
 import { useState } from "react";
 
@@ -117,6 +118,13 @@ export function TranslatedPane ({
                     >
                         Reset Changes
                     </Button>
+                )}
+
+                { translated?.translated_segments && (
+                    <ExportButton
+                        segments={translated.translated_segments}
+                        filenameBase={`${video_id}_translated_${translated.tgt_lang}`}
+                    />
                 )}
             </div>
         </div>

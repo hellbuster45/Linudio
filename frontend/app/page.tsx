@@ -1,5 +1,6 @@
 'use client'
 import { DeviceSelector } from "@/components/DeviceSelector";
+import { ModelSettings } from "@/components/ModelSettings";
 import { FetchVideo } from "@/components/FetchVideo";
 import { TranscriptPane } from "@/components/TranscriptPane";
 import { TranslatedPane } from "@/components/TranslatedPane";
@@ -142,6 +143,7 @@ export default function Home() {
           {!started && (
             <div className="mt-6 flex flex-col items-center justify-center gap-3">
               <DeviceSelector />
+              <ModelSettings />
               <motion.div
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}

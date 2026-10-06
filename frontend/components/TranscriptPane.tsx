@@ -1,6 +1,7 @@
 'use client'
 import { Button, Chip, Label, ListBox, ListBoxItemIndicator, ScrollShadow, Select, Spinner } from "@heroui/react";
 import { TranscriptField } from "./TranscriptField";
+import { ExportButton } from "./ExportButton";
 import { NLLB_CODE_TO_NAME } from "@/lib/constants";
 import { useState } from "react";
 
@@ -146,6 +147,13 @@ export function TranscriptPane ({
                         >
                             Reset Changes
                         </Button>
+                    )}
+
+                    { transcript?.segments && (
+                        <ExportButton
+                            segments={transcript.segments}
+                            filenameBase={`${video_id}_transcript`}
+                        />
                     )}
                 </div>
             </div>

@@ -16,7 +16,7 @@ async def translate(request: TranslationRequest, db: Session = Depends(get_db)):
         video_id = data["video_id"]
 
         text_segments = []
-        if 'segments' in data:
+        if data.get('segments'):
             print("Text present in request body")
             text_segments = data.get('segments')
         else:

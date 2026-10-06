@@ -9,19 +9,22 @@ import os, time
 model = None
 batched_model = None
 current_device = None
+current_model_size = None
 
-def load_model(device: str = None):
-    """Loads (or reloads) the Whisper model onto the given device. Updates module globals."""
-    global model, batched_model, current_device
+def load_model(device: str = None, model_size: str = None):
+    """Loads (or reloads) the Whisper model onto the given device/size. Updates module globals."""
+    global model, batched_model, current_device, current_model_size
 
     device = device or resolve_device()
+    model_size = model_size or settings.WHISPER_MODEL
     compute_type = "float16" if device == "cuda" else "int8"
 
-    model = WhisperModel("large-v3-turbo", device=device, compute_type=compute_type)
+    model = WhisperModel(model_size, device=device, compute_type=compute_type)
     # Wrapping costs nothing until .transcribe() is actually called with batch_size > 1,
     # so we always build it and decide whether to use it per-call based on STT_BATCH_SIZE.
     batched_model = BatchedInferencePipeline(model=model)
     current_device = device
+    current_model_size = model_size
     return model
 
 try:
