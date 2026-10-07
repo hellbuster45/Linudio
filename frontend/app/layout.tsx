@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Montserrat, Share_Tech_Mono } from "next/font/google";
+import { ViewTransitionErrorSuppressor } from "@/components/ViewTransitionErrorSuppressor";
 
 // 1. Define Montserrat
 const montserrat = Montserrat({
@@ -33,6 +34,7 @@ export default function RootLayout({
       className={`${montserrat.variable} ${mono.variable} h-full antialiased dark`}
     >
       <body className="min-h-screen flex flex-col font-sans" suppressHydrationWarning={true}>
+        <ViewTransitionErrorSuppressor />
         {children}
       </body>
     </html>

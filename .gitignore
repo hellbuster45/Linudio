@@ -13,3 +13,7 @@ Thumbs.db
 
 # Misc local artifacts
 *.log
+
+# Downloaded ML models (Whisper, NLLB, MeloTTS, audio-separator) — large,
+# re-downloaded on demand, not source.
+/models/

@@ -1,3 +1,15 @@
+import os, sys, asyncio
+
+# Must be set before transformers/faster_whisper/huggingface_hub are imported
+# anywhere (including transitively via the route modules below), so all
+# downloaded models land in ./models at the repo root instead of ~/.cache.
+# Subprocesses we spawn (tts_worker.py, the audio-separator CLI) inherit
+# these via the default env=None behavior of asyncio.create_subprocess_exec.
+_MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models"))
+os.environ.setdefault("HF_HOME", _MODELS_DIR)
+os.environ.setdefault("AUDIO_SEPARATOR_MODEL_DIR", os.path.join(_MODELS_DIR, "audio-separator"))
+os.makedirs(os.environ["AUDIO_SEPARATOR_MODEL_DIR"], exist_ok=True)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,7 +18,6 @@ from api.v1.text_translation.routes import router as translate_router
 from api.v1.videos.routes import router as video_router
 from api.v1.tts.routes import router as tts_router
 from api.v1.settings.routes import router as settings_router
-import sys, asyncio
 
 if sys.platform == 'win32':
     # This must happen BEFORE any other asyncio calls

@@ -1,6 +1,7 @@
 'use client'
 import { Label, ListBox, ListBoxItemIndicator, Select, Spinner, toast } from "@heroui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSettingsStatus } from "@/context/SettingsStatusContext";
 
 const WHISPER_MODELS = ["tiny", "small", "medium", "large-v3", "large-v3-turbo"];
 const NLLB_MODELS = [
@@ -21,6 +22,7 @@ export function ModelSettings() {
     const [loadingWhisper, setLoadingWhisper] = useState(false);
     const [loadingNllb, setLoadingNllb] = useState(false);
     const [initializing, setInitializing] = useState(true);
+    const { isBusy, statusLabel, notifyStarted } = useSettingsStatus();
 
     const fetchModelInfo = async () => {
         try {
@@ -39,6 +41,22 @@ export function ModelSettings() {
         fetchModelInfo();
     }, []);
 
+    // Once a global settings change finishes, refresh our own view of the models.
+    // Only react to the busy -> idle transition (not every render where isBusy
+    // happens to be false), since our own setLoading*(true) and the context's
+    // setIsBusy(true) land in separate commits and would otherwise race.
+    const wasBusyRef = useRef(false);
+    useEffect(() => {
+        if (isBusy) wasBusyRef.current = true;
+
+        if (!isBusy && wasBusyRef.current && (loadingWhisper || loadingNllb)) {
+            wasBusyRef.current = false;
+            setLoadingWhisper(false);
+            setLoadingNllb(false);
+            fetchModelInfo();
+        }
+    }, [isBusy, loadingWhisper, loadingNllb]);
+
     const handleWhisperChange = async (value: string) => {
         if (value === whisperModel) return;
 
@@ -54,15 +72,15 @@ export function ModelSettings() {
 
             if (data.error) {
                 toast.danger(data.error);
+                setLoadingWhisper(false);
                 return;
             }
 
-            setWhisperModel(data.whisper_model);
-            toast.success(`Whisper model switched to ${data.whisper_model}`);
+            notifyStarted();
+            toast.success(`Switching transcription model to ${value}…`);
         } catch (error) {
             console.error("WHISPER MODEL UPDATE ERROR:", error);
             toast.danger("Failed to update Whisper model");
-        } finally {
             setLoadingWhisper(false);
         }
     };
@@ -82,15 +100,15 @@ export function ModelSettings() {
 
             if (data.error) {
                 toast.danger(data.error);
+                setLoadingNllb(false);
                 return;
             }
 
-            setNllbModel(data.nllb_model);
-            toast.success(`Translation model switched to ${NLLB_LABELS[data.nllb_model] ?? data.nllb_model}`);
+            notifyStarted();
+            toast.success(`Switching translation model to ${NLLB_LABELS[value] ?? value}…`);
         } catch (error) {
             console.error("NLLB MODEL UPDATE ERROR:", error);
             toast.danger("Failed to update translation model");
-        } finally {
             setLoadingNllb(false);
         }
     };
@@ -104,14 +122,14 @@ export function ModelSettings() {
                 variant="secondary"
                 selectedKey={whisperModel}
                 onChange={(value) => handleWhisperChange(value as string)}
-                isDisabled={loadingWhisper}
+                isDisabled={isBusy}
             >
                 <Label>Transcription Model</Label>
                 <Select.Trigger className="px-8 rounded-full font-bold">
                     {loadingWhisper ? (
                         <span className="flex items-center gap-2">
                             <Spinner color="current" size="sm" />
-                            Reloading…
+                            {statusLabel ?? "Reloading…"}
                         </span>
                     ) : (
                         <Select.Value />
@@ -135,14 +153,14 @@ export function ModelSettings() {
                 variant="secondary"
                 selectedKey={nllbModel}
                 onChange={(value) => handleNllbChange(value as string)}
-                isDisabled={loadingNllb}
+                isDisabled={isBusy}
             >
                 <Label>Translation Model</Label>
                 <Select.Trigger className="px-8 rounded-full font-bold">
                     {loadingNllb ? (
                         <span className="flex items-center gap-2">
                             <Spinner color="current" size="sm" />
-                            Reloading…
+                            {statusLabel ?? "Reloading…"}
                         </span>
                     ) : (
                         <Select.Value />

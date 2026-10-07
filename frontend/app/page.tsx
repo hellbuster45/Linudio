@@ -1,6 +1,7 @@
 'use client'
 import { DeviceSelector } from "@/components/DeviceSelector";
 import { ModelSettings } from "@/components/ModelSettings";
+import { SettingsStatusProvider, useSettingsStatus } from "@/context/SettingsStatusContext";
 import { FetchVideo } from "@/components/FetchVideo";
 import { TranscriptPane } from "@/components/TranscriptPane";
 import { TranslatedPane } from "@/components/TranslatedPane";
@@ -8,6 +9,28 @@ import { VideoCard } from "@/components/VideoCard";
 import { Button, Card, Separator, Spinner, toast, Toast } from "@heroui/react";
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+function GetStartedButton({ onClick }: { onClick: () => void }) {
+  const { isBusy } = useSettingsStatus();
+
+  return (
+    <motion.div
+      initial={{ scale: 0.9 }}
+      animate={{ scale: 1 }}
+      whileHover={{ scale: isBusy ? 1 : 1.05 }}
+    >
+      <Button
+        size="lg"
+        variant="primary"
+        className="font-bold px-12 rounded-full"
+        onClick={onClick}
+        isDisabled={isBusy}
+      >
+        Get Started
+      </Button>
+    </motion.div>
+  );
+}
 
 export default function Home() {
   const [started, setStarted] = useState(false);
@@ -141,24 +164,13 @@ export default function Home() {
           </p>
 
           {!started && (
-            <div className="mt-6 flex flex-col items-center justify-center gap-3">
-              <DeviceSelector />
-              <ModelSettings />
-              <motion.div
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                whileHover={{ scale: 1.05 }}
-              >
-                <Button
-                  size="lg"
-                  variant="primary"
-                  className="font-bold px-12 rounded-full"
-                  onClick={() => setStarted(true)}
-                >
-                  Get Started
-                </Button>
-              </motion.div>
-            </div>
+            <SettingsStatusProvider>
+              <div className="mt-6 flex flex-col items-center justify-center gap-3">
+                <DeviceSelector />
+                <ModelSettings />
+                <GetStartedButton onClick={() => setStarted(true)} />
+              </div>
+            </SettingsStatusProvider>
           )}
         </motion.div>
 

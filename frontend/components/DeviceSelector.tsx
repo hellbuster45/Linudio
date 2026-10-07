@@ -1,6 +1,7 @@
 'use client'
 import { ListBox, ListBoxItemIndicator, Select, Spinner, toast } from "@heroui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSettingsStatus } from "@/context/SettingsStatusContext";
 
 const DEVICE_LABELS: Record<string, string> = {
     cpu: "CPU",
@@ -13,6 +14,7 @@ export function DeviceSelector() {
     const [cudaAvailable, setCudaAvailable] = useState(false);
     const [loading, setLoading] = useState(false);
     const [initializing, setInitializing] = useState(true);
+    const { isBusy, statusLabel, notifyStarted } = useSettingsStatus();
 
     const fetchDeviceInfo = async () => {
         try {
@@ -31,6 +33,21 @@ export function DeviceSelector() {
         fetchDeviceInfo();
     }, []);
 
+    // Once a global settings change finishes, refresh our own view of the device.
+    // Only react to the busy -> idle transition (not every render where isBusy
+    // happens to be false), since our own setLoading(true) and the context's
+    // setIsBusy(true) land in separate commits and would otherwise race.
+    const wasBusyRef = useRef(false);
+    useEffect(() => {
+        if (isBusy) wasBusyRef.current = true;
+
+        if (!isBusy && wasBusyRef.current && loading) {
+            wasBusyRef.current = false;
+            setLoading(false);
+            fetchDeviceInfo();
+        }
+    }, [isBusy, loading]);
+
     const handleChange = async (value: string) => {
         if (value === device) return;
 
@@ -46,16 +63,15 @@ export function DeviceSelector() {
 
             if (data.error) {
                 toast.danger(data.error);
+                setLoading(false);
                 return;
             }
 
-            setDevice(data.device);
-            setCudaAvailable(data.cuda_available);
-            toast.success(`Switched to ${DEVICE_LABELS[data.device] ?? data.device}`);
+            notifyStarted();
+            toast.success(`Switching to ${DEVICE_LABELS[value] ?? value}…`);
         } catch (error) {
             console.error("DEVICE UPDATE ERROR:", error);
             toast.danger("Failed to update device");
-        } finally {
             setLoading(false);
         }
     };
@@ -68,13 +84,13 @@ export function DeviceSelector() {
             variant="secondary"
             selectedKey={device}
             onChange={(value) => handleChange(value as string)}
-            isDisabled={loading}
+            isDisabled={isBusy}
         >
             <Select.Trigger className="px-12 rounded-full font-bold">
                 {loading ? (
                     <span className="flex items-center gap-2">
                         <Spinner color="current" size="sm" />
-                        Reloading models…
+                        {statusLabel ?? "Reloading models…"}
                     </span>
                 ) : (
                     <Select.Value />
