@@ -25,8 +25,6 @@ def load_model(target_device: str = None, model_name: str = None):
     current_model_name = model_name
     return model
 
-load_model()
-
 async def translate_text(video_id: str, db, text: list=None, tgt_lang: str="hin_Deva"):
     try:
         text_input = [] # Array of strings from text transcript dict

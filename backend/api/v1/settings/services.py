@@ -1,5 +1,6 @@
 import torch
 from core.config import settings
+from core.progress import status as _status, set_status as _set_status, install_download_progress_hook
 from ..stt import services as stt_services
 from ..text_translation import services as translation_services
 
@@ -11,22 +12,14 @@ VALID_NLLB_MODELS = {
     "facebook/nllb-200-3.3B",
 }
 
-# In-memory status of the most recent/ongoing settings change.
-# Single-user, single-process app: one load happens at a time, so a
-# module-level dict is enough — no need for per-job tracking.
-_status = {
-    "stage": "idle",  # "idle" | "loading" | "ready" | "error"
-    "target": None,   # human-readable description of what's being loaded
-    "error": None,
-}
-
 def get_status():
     return dict(_status)
 
-def _set_status(stage: str, target: str = None, error: str = None):
-    _status["stage"] = stage
-    _status["target"] = target
-    _status["error"] = error
+def is_ready() -> bool:
+    """True once both models have been loaded at least once (via setup_models
+    or the individual set_* functions). Nothing auto-loads on startup, so the
+    frontend uses this to know whether to show the setup flow or the app."""
+    return stt_services.model is not None and translation_services.model is not None
 
 def get_device_info():
     return {
@@ -36,6 +29,7 @@ def get_device_info():
         "cuda_available": torch.cuda.is_available(),
         "whisper_model": stt_services.current_model_size,
         "nllb_model": translation_services.current_model_name,
+        "is_ready": is_ready(),
     }
 
 def _resolve_device(requested_device: str):
@@ -60,7 +54,40 @@ def validate_nllb_model(model_name: str):
         return f"Invalid NLLB model '{model_name}'. Must be one of {sorted(VALID_NLLB_MODELS)}"
     return None
 
+def validate_setup(device: str, whisper_model: str, nllb_model: str):
+    return (
+        validate_device(device)
+        or validate_whisper_model(whisper_model)
+        or validate_nllb_model(nllb_model)
+    )
+
+def setup_models(device: str, whisper_model: str, nllb_model: str):
+    """Initial setup: loads both models for the first time with the user's
+    chosen device/sizes, instead of silently downloading whatever defaults
+    core/config.py happens to have."""
+    install_download_progress_hook()
+    settings.DEVICE = device
+    settings.WHISPER_MODEL = whisper_model
+    settings.NLLB_MODEL = nllb_model
+    resolved = _resolve_device(device)
+
+    try:
+        _set_status("loading", target=f"Transcription model: {whisper_model}")
+        stt_services.load_model(resolved, whisper_model)
+
+        _set_status("loading", target=f"Translation model: {nllb_model}")
+        translation_services.load_model(resolved, nllb_model)
+    except Exception as e:
+        _set_status("error", error=f"Failed to set up models: {str(e)}")
+        return
+
+    _set_status("ready")
+
 def set_device(requested_device: str):
+    if not is_ready():
+        _set_status("error", error="Models haven't been set up yet. Complete initial setup first.")
+        return
+
     resolved = _resolve_device(requested_device)
     settings.DEVICE = requested_device
 
@@ -76,6 +103,10 @@ def set_device(requested_device: str):
     _set_status("ready")
 
 def set_whisper_model(model_size: str):
+    if not is_ready():
+        _set_status("error", error="Models haven't been set up yet. Complete initial setup first.")
+        return
+
     settings.WHISPER_MODEL = model_size
     resolved_device = _resolve_device(settings.DEVICE)
 
@@ -89,6 +120,10 @@ def set_whisper_model(model_size: str):
     _set_status("ready")
 
 def set_nllb_model(model_name: str):
+    if not is_ready():
+        _set_status("error", error="Models haven't been set up yet. Complete initial setup first.")
+        return
+
     settings.NLLB_MODEL = model_name
     resolved_device = _resolve_device(settings.DEVICE)
 

@@ -1,14 +1,16 @@
 from fastapi import APIRouter, BackgroundTasks
-from .schemas import DeviceUpdateRequest, WhisperModelUpdateRequest, NllbModelUpdateRequest
+from .schemas import DeviceUpdateRequest, WhisperModelUpdateRequest, NllbModelUpdateRequest, SetupRequest
 from .services import (
     get_device_info,
     get_status,
     set_device,
     set_whisper_model,
     set_nllb_model,
+    setup_models,
     validate_device,
     validate_whisper_model,
     validate_nllb_model,
+    validate_setup,
 )
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -20,6 +22,15 @@ def get_device():
 @router.get("/status")
 def status():
     return get_status()
+
+@router.post("/setup")
+def setup(request: SetupRequest, background_tasks: BackgroundTasks):
+    error = validate_setup(request.device, request.whisper_model, request.nllb_model)
+    if error:
+        return {"location": "SETTINGS", "error": error}
+
+    background_tasks.add_task(setup_models, request.device, request.whisper_model, request.nllb_model)
+    return {"status": "loading"}
 
 @router.post("/device")
 def update_device(request: DeviceUpdateRequest, background_tasks: BackgroundTasks):

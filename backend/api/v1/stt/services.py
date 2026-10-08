@@ -27,14 +27,6 @@ def load_model(device: str = None, model_size: str = None):
     current_model_size = model_size
     return model
 
-try:
-    load_model()
-except Exception as e:
-    print({
-        'location': "TRANSCRIPTION",
-        'error'   : e
-    })
-
 def transcribe_audio(video_id, db):
     existing = db.query(Transcripts).filter(Transcripts.video_id == video_id).first()
     if existing:

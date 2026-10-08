@@ -8,3 +8,8 @@ class WhisperModelUpdateRequest(BaseModel):
 
 class NllbModelUpdateRequest(BaseModel):
     model_name: str  # e.g. "facebook/nllb-200-distilled-600M"
+
+class SetupRequest(BaseModel):
+    device: str  # "cpu", "cuda", or "auto"
+    whisper_model: str
+    nllb_model: str

@@ -1,20 +1,47 @@
 'use client'
-import { DeviceSelector } from "@/components/DeviceSelector";
-import { ModelSettings } from "@/components/ModelSettings";
-import { SettingsStatusProvider, useSettingsStatus } from "@/context/SettingsStatusContext";
+import { SettingsDrawer } from "@/components/SettingsDrawer";
+import { useSettingsStatus } from "@/context/SettingsStatusContext";
 import { FetchVideo } from "@/components/FetchVideo";
 import { TranscriptPane } from "@/components/TranscriptPane";
 import { TranslatedPane } from "@/components/TranslatedPane";
 import { VideoCard } from "@/components/VideoCard";
-import { Button, Card, Separator, Spinner, toast, Toast } from "@heroui/react";
+import { Button, Card, Separator, Spinner, toast, Toast, useOverlayState } from "@heroui/react";
+import { Settings } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-function GetStartedButton({ onClick }: { onClick: () => void }) {
-  const { isBusy } = useSettingsStatus();
+function SettingsTrigger({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Open settings"
+      className="fixed top-6 right-6 z-40 flex items-center justify-center w-11 h-11 rounded-full border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 transition-colors cursor-pointer"
+    >
+      <Settings className="w-5 h-5" />
+    </button>
+  );
+}
+
+function GetStartedSection({ onClick }: { onClick: () => void }) {
+  const { isBusy, isReady, initializing } = useSettingsStatus();
+
+  if (initializing) return null;
+
+  if (!isReady) {
+    return (
+      <div className="mt-6 flex flex-col items-center gap-2 text-center">
+        <p className="text-muted-foreground max-w-md">
+          Models haven&apos;t been set up yet. Open{" "}
+          <span className="font-semibold text-foreground">Settings</span> (top-right) to
+          choose your device and model sizes, then load them up before getting started.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <motion.div
+      className="mt-6"
       initial={{ scale: 0.9 }}
       animate={{ scale: 1 }}
       whileHover={{ scale: isBusy ? 1 : 1.05 }}
@@ -35,6 +62,7 @@ function GetStartedButton({ onClick }: { onClick: () => void }) {
 export default function Home() {
   const [started, setStarted] = useState(false);
   const [video_id, setVideoID] = useState<string | null>(null);
+  const settingsDrawerState = useOverlayState();
 
   const [metadata, setMetadata] = useState<any>(null);
 
@@ -148,6 +176,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background font-sans selection:bg-accent/30">
       <Toast.Provider placement="top" />
+      <SettingsTrigger onClick={settingsDrawerState.open} />
+      <SettingsDrawer state={settingsDrawerState} />
       <div className="max-w-[95%] mx-auto px-4 py-12 flex flex-col items-center gap-12">
 
         {/* --- Header Section --- */}
@@ -163,15 +193,7 @@ export default function Home() {
             Multi-Agent Youtube Video Translation and Dubbing Simplified!
           </p>
 
-          {!started && (
-            <SettingsStatusProvider>
-              <div className="mt-6 flex flex-col items-center justify-center gap-3">
-                <DeviceSelector />
-                <ModelSettings />
-                <GetStartedButton onClick={() => setStarted(true)} />
-              </div>
-            </SettingsStatusProvider>
-          )}
+          {!started && <GetStartedSection onClick={() => setStarted(true)} />}
         </motion.div>
 
         {/* --- Input Section --- */}
