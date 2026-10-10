@@ -1,22 +1,11 @@
 'use client'
-import { Button, Chip, Label, ListBox, ListBoxItemIndicator, ScrollShadow, Select, Spinner } from "@heroui/react";
+import { Button, Chip, Label, ListBox, ListBoxItemIndicator, ScrollShadow, Select, Spinner, toast } from "@heroui/react";
 import { TranscriptField } from "./TranscriptField";
 import { ExportButton } from "./ExportButton";
 import { NLLB_CODE_TO_NAME } from "@/lib/constants";
+import { apiErrorMessage, apiUrl } from "@/lib/api";
+import type { Transcript, Translated } from "@/lib/types";
 import { useState } from "react";
-
-export interface Segments {
-    id: number,
-    start_time: number,
-    end_time: number,
-    text: string
-}
-
-interface Transcript {
-    src_lang: string,
-    language_probability: number,
-    segments: Segments[]    
-}
 
 export function TranscriptPane ({
     video_id,
@@ -29,10 +18,10 @@ export function TranscriptPane ({
     transcript: Transcript,
     onReset: () => void,
     onUpdate: (index: number, newText: string) => void,
-    onTranslatedFetched: (data: any) => void
+    onTranslatedFetched: (data: Translated) => void
 }) {
-    const [loading, setLoading] = useState<any>(null);
-    const [language, setLanguage] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [language, setLanguage] = useState<string | null>(null);
     const [changes, setChanges] = useState<Set<number>>(new Set());
 
     const handleUpdate = (index: number, newText: string) => {
@@ -60,20 +49,23 @@ export function TranscriptPane ({
                 segments: transcript?.segments
             };
 
-            console.log("PAYLOAD: ", payload);
-
-            const response = await fetch("http://localhost:8000/translate", {
+            const response = await fetch(apiUrl("/translate"), {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify( payload )
             });
 
             const data = await response.json();
-            console.log("TRANSLATED FETCHED", data);
+            const message = apiErrorMessage(data);
+            if (message || !data.translated_segments) {
+                toast.danger(message ?? "Translation failed");
+                return;
+            }
+
             onTranslatedFetched(data);
         } catch(error) {
-            console.log("TRANSLATE FETCH ERROR");
-            console.error(error);
+            console.error("TRANSLATE FETCH ERROR:", error);
+            toast.danger("Could not reach the Linudio backend. Is it running?");
         } finally {
             setLoading(false);
         }
@@ -106,7 +98,7 @@ export function TranscriptPane ({
                 </div>
             </ScrollShadow>
             <div>
-                <Select placeholder="Select One" onChange={(value) => setLanguage(value)}>
+                <Select placeholder="Select One" onChange={(value) => setLanguage(value as string)}>
                     <Label>Choose Target Language: </Label>
                     <Select.Trigger>
                         <Select.Value />

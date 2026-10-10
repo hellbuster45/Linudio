@@ -11,6 +11,11 @@ venv/
 # Downloaded videos, audio, generated storage (user data, not source)
 storage/
 
+# SQLite database files, in case DATABASE_URL points outside storage/
+*.db
+*.db-wal
+*.db-shm
+
 # Scratch space for ad-hoc test files, debug payloads, temporary outputs.
 # Anything written here is throwaway and never meant to be committed.
 scratch/

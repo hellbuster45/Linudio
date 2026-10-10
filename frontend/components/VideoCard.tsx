@@ -1,8 +1,10 @@
 import { useState } from "react";
 import Image from "next/image";
-import { Button, Card, CardFooter, CardHeader, CardTitle, Separator, Spinner } from "@heroui/react";
+import { Button, Card, CardFooter, CardHeader, CardTitle, Separator, Spinner, toast } from "@heroui/react";
+import { apiErrorMessage, apiUrl } from "@/lib/api";
+import type { Transcript, VideoMetadata } from "@/lib/types";
 
-export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, onTranscriptFetched: (data: any) => void }) {
+export function VideoCard({ metadata, onTranscriptFetched }: { metadata: VideoMetadata, onTranscriptFetched: (data: Transcript) => void }) {
     const [loading, setLoading] = useState(false);
 
     // Helper to format "20181025" -> "Oct 25, 2018"
@@ -26,16 +28,23 @@ export function VideoCard({ metadata, onTranscriptFetched }: { metadata: any, on
         setLoading(true);
         const video_id = metadata.video_id;
         try {
-            const response = await fetch("http://localhost:8000/synthesize/", {
+            const response = await fetch(apiUrl("/synthesize/"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ video_id })
             });
 
             const data = await response.json();
+            const message = apiErrorMessage(data);
+            if (message || !data.segments) {
+                toast.danger(message ?? "Transcription failed");
+                return;
+            }
+
             onTranscriptFetched(data);
         } catch (error) {
             console.error("TRANSCRIPTION FETCH ERROR:", error);
+            toast.danger("Could not reach the Linudio backend. Is it running?");
         } finally {
             setLoading(false);
         }

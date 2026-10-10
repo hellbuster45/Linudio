@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, BackgroundTasks, Depends
 from .services import get_video
 from ..helpers import get_metadata
@@ -18,8 +19,11 @@ def health():
 @router.post("/yt_video")
 async def get_yt_video(video_data: YoutubeVideo, bg_task: BackgroundTasks, db: Session = Depends(get_db)):
     try:
-        
-        metadata = get_metadata(video_data.url)
+        # yt-dlp is blocking; keep it off the event loop
+        metadata = await asyncio.to_thread(get_metadata, video_data.url)
+
+        if "error" in metadata:
+            return metadata
 
         bg_task.add_task(get_video, video_data.url, db, metadata)
 

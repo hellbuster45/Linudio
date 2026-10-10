@@ -14,10 +14,12 @@ export interface ExportSegment {
 
 /** Formats seconds as SRT's required HH:MM:SS,mmm timestamp. */
 const formatSrtTimestamp = (seconds: number): string => {
-  const hrs = Math.floor(seconds / 3600)
-  const mins = Math.floor((seconds % 3600) / 60)
-  const secs = Math.floor(seconds % 60)
-  const ms = Math.round((seconds - Math.floor(seconds)) * 1000)
+  // Work in whole milliseconds so rounding can never produce a ",1000" overflow.
+  const totalMs = Math.round(seconds * 1000)
+  const hrs = Math.floor(totalMs / 3_600_000)
+  const mins = Math.floor((totalMs % 3_600_000) / 60_000)
+  const secs = Math.floor((totalMs % 60_000) / 1000)
+  const ms = totalMs % 1000
 
   return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")},${ms.toString().padStart(3, "0")}`
 }
@@ -49,6 +51,25 @@ export const downloadTextFile = (filename: string, content: string) => {
   document.body.removeChild(link)
 
   URL.revokeObjectURL(url)
+}
+
+/** Downloads a file from a URL via a blob, so the browser saves it instead of navigating
+ *  (the `download` attribute is ignored for cross-origin URLs such as the API server). */
+export const downloadFromUrl = async (url: string, filename: string) => {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Download failed (${response.status})`)
+
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+
+  const link = document.createElement("a")
+  link.href = objectUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  URL.revokeObjectURL(objectUrl)
 }
 
 /**

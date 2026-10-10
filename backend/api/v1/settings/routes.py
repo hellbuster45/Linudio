@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks
+from core.preflight import check_system
 from .schemas import DeviceUpdateRequest, WhisperModelUpdateRequest, NllbModelUpdateRequest, SetupRequest
 from .services import (
     get_device_info,
@@ -22,6 +23,10 @@ def get_device():
 @router.get("/status")
 def status():
     return get_status()
+
+@router.get("/preflight")
+def preflight():
+    return check_system()
 
 @router.post("/setup")
 def setup(request: SetupRequest, background_tasks: BackgroundTasks):

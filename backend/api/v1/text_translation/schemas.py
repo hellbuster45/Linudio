@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from core.validation import VideoId
 
 class TranscriptSegment(BaseModel):
     id: int
@@ -8,6 +9,6 @@ class TranscriptSegment(BaseModel):
     text: str
 
 class TranslationRequest(BaseModel):
-    video_id: str
+    video_id: VideoId
     segments: Optional[List[TranscriptSegment]] = None
     tgt_lang: str

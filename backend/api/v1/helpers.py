@@ -1,14 +1,34 @@
-from pathlib import Path
 from yt_dlp import YoutubeDL
-import os, re, asyncio, shutil,sys, traceback
+import os, re, asyncio, shutil, sys
+from urllib.parse import parse_qs, urlparse
+from core.config import settings
+from core.proc import run_command
+from core.validation import is_valid_video_id
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+def _ydl_base_opts() -> dict:
+    opts = {
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'quiet': True,
+        'no_warnings': False,
+        'no_playlist': True,
+        # yt-dlp needs a JavaScript runtime to solve YouTube's player challenges.
+        # It uses whichever of these is installed (deno is recommended).
+        'js_runtimes': {'deno': {}, 'node': {}},
+        'remote_components': ['ejs:github'],
+    }
+    # Optional: a Netscape-format cookies.txt in the storage folder lets yt-dlp
+    # download age-restricted or "confirm you're not a bot" videos.
+    if settings.cookies_file.is_file():
+        opts['cookiefile'] = str(settings.cookies_file)
+    return opts
+
 async def downloader(url: str, video_id: str):
     try:
-        # Create Path for each video storage/{video_id}
-        base_path = os.path.join("storage/videos", video_id)
+        # Each video lives in <storage>/videos/<video_id>
+        base_path = str(settings.videos_dir / video_id)
         os.makedirs(base_path, exist_ok=True)
 
         master_video = os.path.join(base_path, f"{video_id}_video.mp4")
@@ -16,23 +36,18 @@ async def downloader(url: str, video_id: str):
         mono_audio   = os.path.join(base_path, f"{video_id}_mono.wav")
 
         ydl_opts = {
+            **_ydl_base_opts(),
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'quiet': True,
             'outtmpl': master_video,
-            "javascript_runtimes": ['deno'],
-            'remote_components': ['ejs:github'],
-
-            'enable_ejs': True,
-            'cookiefile': 'storage/cookies.txt',
-            'nocheckcertificate': True,
-            'no_warnings': False,
-            'no_playlist': True,
         }
 
-        with YoutubeDL(ydl_opts) as ydl: # download audio, return file path
-            ydl.download([url])
-        
+        def _download():
+            with YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+        # yt-dlp is blocking; run it off the event loop so the API stays responsive.
+        await asyncio.to_thread(_download)
+
         ffmpeg_cmd = [
             'ffmpeg', '-y', '-i', master_video,
             '-map', '0:a:0', '-ac', '2', '-ar', '44100', stereo_audio,
@@ -41,22 +56,20 @@ async def downloader(url: str, video_id: str):
 
         result = await run_ffmpeg(ffmpeg_cmd, "Audio-Split")
 
-        if result == 0:
-            if os.path.exists(stereo_audio) and os.path.exists(mono_audio):
-                return {
-                    'folder': base_path,
-                    'files': {
-                        'video': master_video,
-                        'stereo': stereo_audio,
-                        'mono': mono_audio,
-                    },
-                }
-        else:
+        if result == 0 and os.path.exists(stereo_audio) and os.path.exists(mono_audio):
             return {
-                "status": "error",
-                "location": "HELPERS",
-                "error": "FFMpeg failed to create required files"
+                'folder': base_path,
+                'files': {
+                    'video': master_video,
+                    'stereo': stereo_audio,
+                    'mono': mono_audio,
+                },
             }
+        return {
+            "status": "error",
+            "location": "HELPERS",
+            "error": "FFMpeg failed to create required files"
+        }
     except Exception as e:
         return {
             'location' : 'HELPERS',
@@ -64,66 +77,40 @@ async def downloader(url: str, video_id: str):
         }
 
 async def run_ffmpeg(cmd_list, task_name="FFMpeg"):
-    try:
-        # 1. Verify FFmpeg exists
-        ffmpeg_exe = shutil.which("ffmpeg")
-        if not ffmpeg_exe:
-            print(f"[{task_name}] ERROR: ffmpeg.exe not found in PATH.")
-            return -1
-
-        # 2. Build the command string properly
-        # We wrap paths in quotes to handle Windows spaces
-        formatted_args = []
-        for arg in cmd_list:
-            arg_str = str(arg)
-            if " " in arg_str or "\\" in arg_str:
-                formatted_args.append(f'"{arg_str}"')
-            else:
-                formatted_args.append(arg_str)
-        
-        cmd_str = " ".join(formatted_args)
-        
-        # 3. Create the subprocess
-        # Pass ONLY the string as the first argument, others as keywords
-        process = await asyncio.create_subprocess_shell(
-            cmd_str,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        # 4. Monitor stderr (where FFmpeg output lives)
-        async def stream_logs(stream):
-            while True:
-                line = await stream.readline()
-                if not line:
-                    break
-
-        # Run logging and wait for exit
-        await asyncio.gather(
-            stream_logs(process.stderr),
-            process.wait()
-        )
-
-        return process.returncode
-
-    except Exception:
-        print(f"CRITICAL ERROR in {task_name}:")
-        print(traceback.format_exc())
+    ffmpeg_exe = shutil.which("ffmpeg")
+    if not ffmpeg_exe:
+        print(f"[{task_name}] ERROR: ffmpeg not found in PATH.")
         return -1
+
+    returncode, _ = await run_command([ffmpeg_exe, *cmd_list[1:]], task_name)
+    return returncode
+
+_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "www.youtu.be"}
+
+def is_youtube_url(url: str) -> bool:
+    """yt-dlp will happily fetch hundreds of other sites (and local addresses), so only
+    YouTube links are accepted, and this is checked before anything touches the network."""
+    try:
+        parsed = urlparse(url if "://" in url else f"https://{url}")
+    except ValueError:
+        return False
+    return parsed.scheme in ("http", "https") and (parsed.hostname or "").lower() in _YOUTUBE_HOSTS
 
 def get_metadata(url: str):
     try:
-        options = {
-            "quiet": True,
-            "js-runtime": {"node": {}}
-        }
-        
-        with YoutubeDL(options) as ydl:
+        video_id = extract_youtube_id(url) if is_youtube_url(url) else None
+        if video_id is None:
+            return {
+                'location': 'HELPERS-METADATA',
+                'error': "That doesn't look like a YouTube video link."
+            }
+
+        with YoutubeDL(_ydl_base_opts()) as ydl:
             print(f"Fetching metadata for URL: {url}")
             info = ydl.extract_info(url=url, download=False)
-        
+
         return {
-            "video_id"    : extract_youtube_id(url),
+            "video_id"    : video_id,
             "title"       : info.get("title"),
             "thumbnail"   : info.get("thumbnail"),
             "duration"    : info.get("duration"),
@@ -139,8 +126,20 @@ def get_metadata(url: str):
         }
 
 def extract_youtube_id(url: str) -> str | None:
-    reg_exp = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
-    match = reg_exp.match(url)
-    if match and len(match.group(7)) == 11:
-        return match.group(7)
-    return None
+    """Returns the 11-character video id from a YouTube link, or None if there isn't a valid one.
+    Handles watch?v=, youtu.be/, /embed/, /v/, /shorts/ and /live/ links."""
+    try:
+        parsed = urlparse(url if "://" in url else f"https://{url}")
+    except ValueError:
+        return None
+
+    host = (parsed.hostname or "").lower()
+    if host in ("youtu.be", "www.youtu.be"):
+        candidate = parsed.path.lstrip("/").split("/")[0]
+    else:
+        candidate = (parse_qs(parsed.query).get("v") or [None])[0]
+        if not candidate:
+            match = re.match(r"^/(?:embed|v|shorts|live)/([^/?#]+)", parsed.path)
+            candidate = match.group(1) if match else None
+
+    return candidate if is_valid_video_id(candidate) else None

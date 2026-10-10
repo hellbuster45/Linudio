@@ -1,9 +1,9 @@
 import { Card, Chip, TextArea } from "@heroui/react";
-import { Segments } from "./TranscriptPane";
+import type { Segment } from "@/lib/types";
 import { formatWhisperTimestamp } from "@/lib/utils";
 import { JSX, memo, useCallback, useRef } from "react";
 
-export const TranscriptField = memo(({ segments, onValueChanged }: { segments: Segments, onValueChanged: (newText: string) => void }): JSX.Element => {
+export const TranscriptField = memo(function TranscriptField({ segments, onValueChanged }: { segments: Segment, onValueChanged: (newText: string) => void }): JSX.Element {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleChange = useCallback((newText: string) => {

@@ -1,0 +1,6 @@
+# Pins the tested core stack so installing audio-separator's dependencies can't upgrade it.
+torch==2.2.2
+torchaudio==2.2.2
+numpy<2
+librosa==0.9.1
+transformers==4.27.4

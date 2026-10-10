@@ -17,3 +17,6 @@ Thumbs.db
 # Downloaded ML models (Whisper, NLLB, MeloTTS, audio-separator) — large,
 # re-downloaded on demand, not source.
 /models/
+
+# Personal / academic files that don't belong in the public repo
+Project_End_Sem_Eval.pptx

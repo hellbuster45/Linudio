@@ -12,6 +12,7 @@ import {
 } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useSettingsStatus } from "@/context/SettingsStatusContext";
+import { apiUrl } from "@/lib/api";
 
 type OverlayState = ReturnType<typeof useOverlayState>;
 
@@ -58,14 +59,14 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
     useEffect(() => {
         if (!device) return;
         setSelectedDevice(device.device);
-        if (device.whisper_model) setSelectedWhisper(device.whisper_model);
-        if (device.nllb_model) setSelectedNllb(device.nllb_model);
+        setSelectedWhisper(device.whisper_model ?? device.default_whisper_model);
+        setSelectedNllb(device.nllb_model ?? device.default_nllb_model);
     }, [device]);
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const handleSetup = async () => {
         try {
-            const response = await fetch("http://localhost:8000/settings/setup", {
+            const response = await fetch(apiUrl("/settings/setup"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -94,7 +95,7 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
         if (!isReady) return; // part of the pending setup payload, not applied yet
 
         try {
-            const response = await fetch("http://localhost:8000/settings/device", {
+            const response = await fetch(apiUrl("/settings/device"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ device: value }),
@@ -120,7 +121,7 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
         if (!isReady) return;
 
         try {
-            const response = await fetch("http://localhost:8000/settings/whisper_model", {
+            const response = await fetch(apiUrl("/settings/whisper_model"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ model_size: value }),
@@ -146,7 +147,7 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
         if (!isReady) return;
 
         try {
-            const response = await fetch("http://localhost:8000/settings/nllb_model", {
+            const response = await fetch(apiUrl("/settings/nllb_model"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ model_name: value }),

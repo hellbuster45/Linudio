@@ -1,22 +1,11 @@
 'use client'
-import { Button, Chip, ScrollShadow, Spinner } from "@heroui/react";
+import { Button, Chip, ScrollShadow, Spinner, toast } from "@heroui/react";
 import { TranscriptField } from "./TranscriptField";
 import { ExportButton } from "./ExportButton";
 import { NLLB_CODE_TO_NAME } from "@/lib/constants";
+import { apiErrorMessage, apiUrl } from "@/lib/api";
+import type { Translated } from "@/lib/types";
 import { useState } from "react";
-
-export interface Segments {
-    id: number,
-    start_time: number,
-    end_time: number,
-    text: string
-}
-
-interface Translated {
-    status: string,
-    tgt_lang: string,
-    translated_segments: Segments[]    
-}
 
 export function TranslatedPane ({
     video_id,
@@ -29,9 +18,9 @@ export function TranslatedPane ({
     translated: Translated,
     onReset: () => void,
     onUpdate: (index: number, newText: string) => void,
-    onDubStarted: (data: any) => void
+    onDubStarted: () => void
 }) {
-    const [loading, setLoading] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
     const [changes, setChanges] = useState<Set<number>>(new Set());
 
     const handleUpdate = (index: number, newText: string) => {
@@ -55,17 +44,22 @@ export function TranslatedPane ({
         }
 
         try {
-            const response = await fetch("http://localhost:8000/text_to_speech/dub", {
+            const response = await fetch(apiUrl("/text_to_speech/dub"), {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(payload)
             });
 
             const data = await response.json();
-            onDubStarted(data);
+            if (data.status !== "started") {
+                toast.danger(apiErrorMessage(data) ?? "Couldn't start dubbing");
+                return;
+            }
+
+            onDubStarted();
         } catch(error) {
-            console.log("TRANSLATE FETCH ERROR");
-            console.error(error);
+            console.error("DUB START ERROR:", error);
+            toast.danger("Could not reach the Linudio backend. Is it running?");
         } finally {
             setLoading(false);
         }

@@ -1,5 +1,7 @@
 'use client'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { apiUrl } from "@/lib/api";
+import type { Preflight } from "@/lib/types";
 
 type SettingsStage = "idle" | "loading" | "ready" | "error";
 
@@ -18,6 +20,8 @@ interface DeviceInfo {
     cuda_available: boolean;
     whisper_model: string | null;
     nllb_model: string | null;
+    default_whisper_model: string;
+    default_nllb_model: string;
     is_ready: boolean;
 }
 
@@ -29,6 +33,7 @@ interface SettingsStatusContextValue {
     isReady: boolean;
     initializing: boolean;
     device: DeviceInfo | null;
+    preflight: Preflight | null;
     // Called right after a POST is fired, so the UI locks immediately
     // instead of waiting for the first poll tick to catch up.
     notifyStarted: () => void;
@@ -43,6 +48,7 @@ const SettingsStatusContext = createContext<SettingsStatusContextValue>({
     isReady: false,
     initializing: true,
     device: null,
+    preflight: null,
     notifyStarted: () => {},
     refreshDevice: async () => {},
 });
@@ -57,12 +63,13 @@ export function SettingsStatusProvider({ children }: { children: React.ReactNode
     const [bytesDownloaded, setBytesDownloaded] = useState<number | null>(null);
     const [bytesTotal, setBytesTotal] = useState<number | null>(null);
     const [device, setDevice] = useState<DeviceInfo | null>(null);
+    const [preflight, setPreflight] = useState<Preflight | null>(null);
     const [initializing, setInitializing] = useState(true);
     const pollRef = useRef<NodeJS.Timeout | null>(null);
 
     const refreshDevice = useCallback(async () => {
         try {
-            const response = await fetch("http://localhost:8000/settings/device");
+            const response = await fetch(apiUrl("/settings/device"));
             const data: DeviceInfo = await response.json();
             setDevice(data);
         } catch (error) {
@@ -72,17 +79,23 @@ export function SettingsStatusProvider({ children }: { children: React.ReactNode
         }
     }, []);
 
+    /* eslint-disable react-hooks/set-state-in-effect --
+       Fetch-on-mount via stable, externally-reusable callbacks (refreshDevice is also
+       called from poll() and exposed through context). Not a cascading setState loop,
+       just the initial load of remote data. */
     useEffect(() => {
-        // Fetch-on-mount via a stable, externally-reusable callback (also
-        // called from poll() and exposed through context) — not a cascading
-        // setState loop, just the initial load of a remote data source.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         refreshDevice();
+
+        fetch(apiUrl("/settings/preflight"))
+            .then((response) => response.json())
+            .then((data: Preflight) => setPreflight(data))
+            .catch((error) => console.error("PREFLIGHT FETCH ERROR:", error));
     }, [refreshDevice]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const poll = useCallback(async () => {
         try {
-            const response = await fetch("http://localhost:8000/settings/status");
+            const response = await fetch(apiUrl("/settings/status"));
             const data: SettingsStatus = await response.json();
 
             if (data.stage === "loading") {
@@ -131,6 +144,7 @@ export function SettingsStatusProvider({ children }: { children: React.ReactNode
                 isReady: device?.is_ready ?? false,
                 initializing,
                 device,
+                preflight,
                 notifyStarted,
                 refreshDevice,
             }}

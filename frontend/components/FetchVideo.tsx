@@ -1,9 +1,10 @@
 'use client'
-import { Button, Input, Label, Spinner } from "@heroui/react";
+import { Button, Input, Spinner, toast } from "@heroui/react";
 import { useState } from "react";
+import { apiErrorMessage, apiUrl } from "@/lib/api";
+import type { VideoMetadata } from "@/lib/types";
 
-
-export function FetchVideo({ onVideoFetched }: { onVideoFetched: (data: any) => void }) {
+export function FetchVideo({ onVideoFetched }: { onVideoFetched: (data: VideoMetadata) => void }) {
     const [url, setUrl] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -11,17 +12,23 @@ export function FetchVideo({ onVideoFetched }: { onVideoFetched: (data: any) => 
         setLoading(true);
 
         try {
-            const response = await fetch("http://localhost:8000/videos/yt_video", {
+            const response = await fetch(apiUrl("/videos/yt_video"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ url })
             });
 
             const data = await response.json();
+            const message = apiErrorMessage(data);
+            if (message || !data.metadata) {
+                toast.danger(message ?? "Couldn't fetch that video");
+                return;
+            }
+
             onVideoFetched(data.metadata);
         } catch (error) {
-            console.log("FETCH VIDEO FAILED!");
-            console.error(error);
+            console.error("FETCH VIDEO FAILED:", error);
+            toast.danger("Could not reach the Linudio backend. Is it running?");
         } finally {
             setLoading(false);
         }

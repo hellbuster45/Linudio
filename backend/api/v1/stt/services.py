@@ -38,7 +38,12 @@ def transcribe_audio(video_id, db):
         }
     
     video_row = db.query(Videos).filter(Videos.video_id == video_id).first()
-    
+    if video_row is None:
+        return {
+            'location': 'TRANSCRIPTION',
+            'error': "This video hasn't been downloaded yet. Fetch it first."
+        }
+
     # Use the base_path stored in your audio_path column
     folder_path = video_row.audio_path 
     

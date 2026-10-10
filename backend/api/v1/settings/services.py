@@ -29,6 +29,9 @@ def get_device_info():
         "cuda_available": torch.cuda.is_available(),
         "whisper_model": stt_services.current_model_size,
         "nllb_model": translation_services.current_model_name,
+        # Pre-selected in the Set Up panel before anything is loaded (from .env / last choice).
+        "default_whisper_model": settings.WHISPER_MODEL,
+        "default_nllb_model": settings.NLLB_MODEL,
         "is_ready": is_ready(),
     }
 
