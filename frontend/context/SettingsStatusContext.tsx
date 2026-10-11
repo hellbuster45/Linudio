@@ -8,6 +8,8 @@ type SettingsStage = "idle" | "loading" | "ready" | "error";
 interface SettingsStatus {
     stage: SettingsStage;
     target: string | null;
+    step: number | null;
+    total_steps: number | null;
     bytes_downloaded: number | null;
     bytes_total: number | null;
     error: string | null;
@@ -28,6 +30,8 @@ interface DeviceInfo {
 interface SettingsStatusContextValue {
     isBusy: boolean;
     statusLabel: string | null;
+    step: number | null;
+    totalSteps: number | null;
     bytesDownloaded: number | null;
     bytesTotal: number | null;
     isReady: boolean;
@@ -43,6 +47,8 @@ interface SettingsStatusContextValue {
 const SettingsStatusContext = createContext<SettingsStatusContextValue>({
     isBusy: false,
     statusLabel: null,
+    step: null,
+    totalSteps: null,
     bytesDownloaded: null,
     bytesTotal: null,
     isReady: false,
@@ -60,12 +66,15 @@ export function useSettingsStatus() {
 export function SettingsStatusProvider({ children }: { children: React.ReactNode }) {
     const [isBusy, setIsBusy] = useState(false);
     const [statusLabel, setStatusLabel] = useState<string | null>(null);
+    const [step, setStep] = useState<number | null>(null);
+    const [totalSteps, setTotalSteps] = useState<number | null>(null);
     const [bytesDownloaded, setBytesDownloaded] = useState<number | null>(null);
     const [bytesTotal, setBytesTotal] = useState<number | null>(null);
     const [device, setDevice] = useState<DeviceInfo | null>(null);
     const [preflight, setPreflight] = useState<Preflight | null>(null);
     const [initializing, setInitializing] = useState(true);
     const pollRef = useRef<NodeJS.Timeout | null>(null);
+    const pollFnRef = useRef<() => Promise<void>>(async () => {});
 
     const refreshDevice = useCallback(async () => {
         try {
@@ -79,33 +88,25 @@ export function SettingsStatusProvider({ children }: { children: React.ReactNode
         }
     }, []);
 
-    /* eslint-disable react-hooks/set-state-in-effect --
-       Fetch-on-mount via stable, externally-reusable callbacks (refreshDevice is also
-       called from poll() and exposed through context). Not a cascading setState loop,
-       just the initial load of remote data. */
-    useEffect(() => {
-        refreshDevice();
-
-        fetch(apiUrl("/settings/preflight"))
-            .then((response) => response.json())
-            .then((data: Preflight) => setPreflight(data))
-            .catch((error) => console.error("PREFLIGHT FETCH ERROR:", error));
-    }, [refreshDevice]);
-    /* eslint-enable react-hooks/set-state-in-effect */
-
     const poll = useCallback(async () => {
         try {
             const response = await fetch(apiUrl("/settings/status"));
             const data: SettingsStatus = await response.json();
 
             if (data.stage === "loading") {
+                // Also covers a load that was started before this page was opened (e.g. a refresh mid-setup).
+                if (!pollRef.current) pollRef.current = setInterval(() => pollFnRef.current(), 1000);
                 setIsBusy(true);
                 setStatusLabel(data.target ?? "Loading…");
+                setStep(data.step);
+                setTotalSteps(data.total_steps);
                 setBytesDownloaded(data.bytes_downloaded);
                 setBytesTotal(data.bytes_total);
             } else {
                 setIsBusy(false);
                 setStatusLabel(null);
+                setStep(null);
+                setTotalSteps(null);
                 setBytesDownloaded(null);
                 setBytesTotal(null);
                 if (pollRef.current) {
@@ -121,12 +122,31 @@ export function SettingsStatusProvider({ children }: { children: React.ReactNode
         }
     }, [refreshDevice]);
 
+    useEffect(() => {
+        pollFnRef.current = poll;
+    }, [poll]);
+
     const notifyStarted = useCallback(() => {
         setIsBusy(true);
         if (pollRef.current) return;
         poll();
         pollRef.current = setInterval(poll, 1000);
     }, [poll]);
+
+    /* eslint-disable react-hooks/set-state-in-effect --
+       Fetch-on-mount via stable, externally-reusable callbacks (refreshDevice is also
+       called from poll() and exposed through context). Not a cascading setState loop,
+       just the initial load of remote data. */
+    useEffect(() => {
+        refreshDevice();
+        poll();
+
+        fetch(apiUrl("/settings/preflight"))
+            .then((response) => response.json())
+            .then((data: Preflight) => setPreflight(data))
+            .catch((error) => console.error("PREFLIGHT FETCH ERROR:", error));
+    }, [refreshDevice, poll]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     useEffect(() => {
         return () => {
@@ -139,6 +159,8 @@ export function SettingsStatusProvider({ children }: { children: React.ReactNode
             value={{
                 isBusy,
                 statusLabel,
+                step,
+                totalSteps,
                 bytesDownloaded,
                 bytesTotal,
                 isReady: device?.is_ready ?? false,

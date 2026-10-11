@@ -66,9 +66,9 @@ function GetStartedSection({ onClick }: { onClick: () => void }) {
       <>
         <div className="mt-6 flex flex-col items-center gap-2 text-center">
           <p className="text-muted-foreground max-w-md">
-            Models haven&apos;t been set up yet. Open{" "}
-            <span className="font-semibold text-foreground">Settings</span> (top-right) to
-            choose your device and model sizes, then load them up before getting started.
+            Linudio hasn&apos;t been set up yet. Open{" "}
+            <span className="font-semibold text-foreground">Settings</span> (top-right), choose
+            your device, models and dubbing voices, and click Set Up to download everything at once.
           </p>
         </div>
         <PreflightNotice />

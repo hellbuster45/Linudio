@@ -1,6 +1,8 @@
 'use client'
 import {
     Button,
+    Checkbox,
+    CheckboxGroup,
     Drawer,
     Label,
     ListBox,
@@ -34,6 +36,29 @@ const NLLB_LABELS: Record<string, string> = {
     "facebook/nllb-200-3.3B": "NLLB 3.3B (best quality)",
 };
 
+// Dubbing voices, with the download size of each (voice model plus its text-processing model).
+const VOICES = [
+    { code: "EN", label: "English", sizeGb: 0.6 },
+    { code: "ES", label: "Spanish", sizeGb: 0.2 },
+    { code: "FR", label: "French", sizeGb: 0.6 },
+    { code: "ZH", label: "Chinese", sizeGb: 0.85 },
+    { code: "JP", label: "Japanese", sizeGb: 0.2 },
+    { code: "KR", label: "Korean", sizeGb: 0.65 },
+];
+const WHISPER_SIZE_GB: Record<string, number> = {
+    tiny: 0.08,
+    small: 0.5,
+    medium: 1.5,
+    "large-v3": 3.1,
+    "large-v3-turbo": 1.6,
+};
+const NLLB_SIZE_GB: Record<string, number> = {
+    "facebook/nllb-200-distilled-600M": 2.5,
+    "facebook/nllb-200-distilled-1.3B": 5.5,
+    "facebook/nllb-200-3.3B": 17.6,
+};
+const SEPARATOR_SIZE_GB = 0.07;
+
 function formatBytes(bytes: number | null): string {
     if (bytes === null) return "";
     const mb = bytes / (1024 * 1024);
@@ -42,8 +67,19 @@ function formatBytes(bytes: number | null): string {
 }
 
 export function SettingsDrawer({ state }: { state: OverlayState }) {
-    const { isBusy, statusLabel, bytesDownloaded, bytesTotal, isReady, device, notifyStarted, refreshDevice } =
-        useSettingsStatus();
+    const {
+        isBusy,
+        statusLabel,
+        step,
+        totalSteps,
+        bytesDownloaded,
+        bytesTotal,
+        isReady,
+        device,
+        preflight,
+        notifyStarted,
+        refreshDevice,
+    } = useSettingsStatus();
 
     // Local selections: pre-filled from the backend once loaded (or sane
     // defaults pre-setup), editable regardless of isReady so the user can
@@ -51,6 +87,18 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
     const [selectedDevice, setSelectedDevice] = useState<string>("cpu");
     const [selectedWhisper, setSelectedWhisper] = useState<string>("large-v3-turbo");
     const [selectedNllb, setSelectedNllb] = useState<string>("facebook/nllb-200-distilled-600M");
+    // Everything is downloaded by default; the user opts voices out rather than in.
+    const [skippedVoices, setSkippedVoices] = useState<string[]>([]);
+
+    const koreanMissing = preflight?.checks.some((check) => check.name.includes("Korean") && !check.ok) ?? false;
+    const selectedVoices = VOICES.map((voice) => voice.code).filter(
+        (code) => !skippedVoices.includes(code) && !(code === "KR" && koreanMissing)
+    );
+    const estimatedGb =
+        (WHISPER_SIZE_GB[selectedWhisper] ?? 0) +
+        (NLLB_SIZE_GB[selectedNllb] ?? 0) +
+        SEPARATOR_SIZE_GB +
+        VOICES.filter((voice) => selectedVoices.includes(voice.code)).reduce((sum, voice) => sum + voice.sizeGb, 0);
 
     /* eslint-disable react-hooks/set-state-in-effect --
        Mirrors the backend's device/model state (arrives async via polling)
@@ -73,6 +121,7 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
                     device: selectedDevice,
                     whisper_model: selectedWhisper,
                     nllb_model: selectedNllb,
+                    voices: selectedVoices,
                 }),
             });
             const data = await response.json();
@@ -83,7 +132,7 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
             }
 
             notifyStarted();
-            toast.success("Setting up models…");
+            toast.success("Setting everything up…");
         } catch (error) {
             console.error("SETUP ERROR:", error);
             toast.danger("Failed to start setup");
@@ -185,11 +234,39 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
                         <Drawer.Body className="flex flex-col gap-6">
                             {!isReady && !isBusy && (
                                 <p className="text-sm text-muted-foreground">
-                                    Pick your device and model sizes below, then click{" "}
-                                    <span className="font-semibold">Set Up</span> to download and load
-                                    them. This only needs to be done once — switching settings later
-                                    just reloads the one you changed.
+                                    Pick your device, model sizes and dubbing voices below, then click{" "}
+                                    <span className="font-semibold">Set Up</span> to download and prepare
+                                    everything at once. This only needs to be done once — switching
+                                    settings later just reloads the one you changed.
                                 </p>
+                            )}
+
+                            {isBusy && (
+                                <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-4">
+                                    {step !== null && totalSteps !== null && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Step {step} of {totalSteps}
+                                        </p>
+                                    )}
+                                    <p className="text-sm font-semibold">{statusLabel ?? "Working…"}</p>
+                                    {progressPercent !== null ? (
+                                        <ProgressBar value={progressPercent} minValue={0} maxValue={100}>
+                                            <div className="flex justify-between text-xs text-muted-foreground">
+                                                <ProgressBar.Output />
+                                                <span>
+                                                    {formatBytes(bytesDownloaded)} / {formatBytes(bytesTotal)}
+                                                </span>
+                                            </div>
+                                            <ProgressBar.Track>
+                                                <ProgressBar.Fill />
+                                            </ProgressBar.Track>
+                                        </ProgressBar>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                            Working… this can take a while the first time.
+                                        </p>
+                                    )}
+                                </div>
                             )}
 
                             <Select
@@ -274,28 +351,49 @@ export function SettingsDrawer({ state }: { state: OverlayState }) {
                                 </Select.Popover>
                             </Select>
 
-                            {isBusy && (
-                                <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-sm font-semibold">{statusLabel ?? "Working…"}</p>
-                                    {progressPercent !== null ? (
-                                        <ProgressBar value={progressPercent} minValue={0} maxValue={100}>
-                                            <div className="flex justify-between text-xs text-muted-foreground">
-                                                <ProgressBar.Output />
-                                                <span>
-                                                    {formatBytes(bytesDownloaded)} / {formatBytes(bytesTotal)}
-                                                </span>
-                                            </div>
-                                            <ProgressBar.Track>
-                                                <ProgressBar.Fill />
-                                            </ProgressBar.Track>
-                                        </ProgressBar>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground">
-                                            Preparing… this can take a while on first run.
-                                        </p>
-                                    )}
+                            {!isReady && !isBusy && (
+                                <div className="flex flex-col gap-2">
+                                    <CheckboxGroup
+                                        value={selectedVoices}
+                                        onChange={(values) =>
+                                            setSkippedVoices(
+                                                VOICES.map((voice) => voice.code).filter((code) => !values.includes(code))
+                                            )
+                                        }
+                                        isDisabled={isBusy}
+                                        className="flex flex-col gap-2"
+                                    >
+                                        <Label>Dubbing voices</Label>
+                                        {VOICES.map((voice) => (
+                                            <Checkbox
+                                                key={voice.code}
+                                                value={voice.code}
+                                                isDisabled={voice.code === "KR" && koreanMissing}
+                                            >
+                                                <Checkbox.Control>
+                                                    <Checkbox.Indicator />
+                                                </Checkbox.Control>
+                                                <Checkbox.Content>
+                                                    {voice.label}{" "}
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {voice.code === "KR" && koreanMissing
+                                                            ? "(tokenizer not installed)"
+                                                            : `(about ${voice.sizeGb} GB)`}
+                                                    </span>
+                                                </Checkbox.Content>
+                                            </Checkbox>
+                                        ))}
+                                    </CheckboxGroup>
+                                    <p className="text-xs text-muted-foreground">
+                                        A voice you skip downloads the first time you dub into it.
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Estimated download: about {estimatedGb.toFixed(1)} GB (anything already on this
+                                        machine is skipped).
+                                    </p>
                                 </div>
                             )}
+
                         </Drawer.Body>
                         {!isReady && (
                             <Drawer.Footer>

@@ -1,0 +1,10 @@
+{
+  "name": "linudio",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others --names api,web --prefix-colors cyan,magenta \"cd backend && python -m uvicorn main:app\" \"npm run dev --prefix frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

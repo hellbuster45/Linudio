@@ -26,8 +26,8 @@ YouTube URL -> download (yt-dlp) -> transcribe (Whisper) -> translate (NLLB)
 - Pick your device (CPU, GPU, or auto) and model sizes in the app, with live download progress
 - Everything runs locally and your videos never leave your computer
 
-The first time you open the app you choose your device and model sizes in the settings panel;
-the models are downloaded for you, with progress shown.
+The first time you open the app you choose your device, model sizes and dubbing voices in the
+settings panel, and one click on **Set Up** downloads and prepares everything, with progress shown.
 
 ![Linudio's first-run setup panel](docs/images/setup-panel.png)
 
@@ -67,6 +67,12 @@ anything missing (FFmpeg, a JavaScript runtime). It takes a while: the downloads
 Do not use a bare `pip install -r requirements.txt`: two of the libraries declare conflicting
 version ranges, which the script works around.
 
+**Shortcut (Windows):** once `install.py` has finished, double-click `Linudio.bat` in the project
+folder. It stops anything left over from a previous run, starts the backend and frontend together
+(`npm run dev` at the top level does the same, without the browser handling), opens
+<http://localhost:3000>, and shuts everything down when you close the browser tab. The first run
+installs the Node packages for you. Then skip to step 5. The manual steps follow.
+
 **2. Start the backend**
 
 ```bash
@@ -85,16 +91,15 @@ npm run dev
 
 **4. Open <http://localhost:3000>** and click the gear icon in the top-right corner.
 
-**5. Set up your models.** Choose a device and the model sizes you want, then click **Set Up**. The
-models are downloaded into the `models/` folder, with a progress bar. You only do this once;
+**5. Set up.** Choose a device, the model sizes and the dubbing voices you want, then click **Set Up**.
+Everything is downloaded and prepared in one go (the models, the voice-separation model, language
+data and the voices), with a step counter and progress bar. It can take a while, but when it
+finishes nothing else will download, so your first dub runs straight through. You only do this once;
 later changes to a setting reload just that one model.
 
 **6. Dub a video.** Click **Get Started**, paste a YouTube URL, and follow the steps: fetch the
 video, transcribe it, pick a target language and translate it, edit anything you want to fix, then
 click **Start Dubbing**. When it finishes you can watch and download the result.
-
-The first dub into each language downloads that language's voice (a few hundred MB), so it takes
-longer than the ones after it.
 
 ## Models and disk space
 
@@ -112,7 +117,15 @@ else. Delete the folder to get the space back.
 | | NLLB 1.3B | 5.5 GB |
 | | NLLB 3.3B | 17.6 GB |
 | Voice separation | Kim_Vocal_2 | 0.07 GB |
-| Speech | MeloTTS, per language | a few hundred MB |
+| Dubbing voice | English | 0.6 GB |
+| | Spanish | 0.2 GB |
+| | French | 0.6 GB |
+| | Chinese | 0.85 GB |
+| | Japanese | 0.2 GB |
+| | Korean | 0.65 GB |
+
+All six voices together are about 3.1 GB. The setup panel lets you untick the ones you don't need and
+shows the estimated total. A voice you skip is simply downloaded the first time you dub into it.
 
 Bigger models are more accurate and slower. On a CPU-only machine the defaults are a good place
 to start.
@@ -172,8 +185,7 @@ the downloaded models.
 | A dub fails after "Separating vocals" | Look at the terminal running the backend; the cause is printed there. The notice above also flags the usual culprits (missing dictionary or language data). |
 | "Sign in to confirm you're not a bot" when fetching a video | Add a `cookies.txt` (see above). |
 | The UI says it can't reach the backend | Is `uvicorn main:app` running in `backend/`? Browser errors mentioning CORS mean the UI's address isn't in `CORS_ORIGINS`. |
-| Setup seems stuck at the start | Large models take a while to begin downloading. Watch the progress bar, or the backend's terminal. |
-| The first dub into a language is very slow | It is downloading that language's voice. Later dubs are much faster. |
+| Setup seems stuck | Large downloads take a while to begin. Watch the step counter and progress bar, or the backend's terminal. If you refresh the page mid-setup it picks the run back up. |
 | Port 8000 or 3000 is already in use | Start the backend with `uvicorn main:app --port 8001` and set `NEXT_PUBLIC_API_URL` to match. |
 | A fetch fails after a long time working | yt-dlp breaks when YouTube changes. Run `pip install -U yt-dlp` inside the virtual environment. |
 
@@ -226,7 +238,8 @@ CI runs all of this on every push; see `.github/workflows/ci.yml`.
 
 ## License
 
-See [`LICENSE`](LICENSE) for Linudio's code.
+Linudio is a small personal project and has no license file, so all rights are reserved by default.
+If you'd like to use or build on it, open an issue and ask.
 
 **The AI models have their own licenses, and one matters a lot:** the NLLB translation models are
 **CC-BY-NC-4.0, which forbids commercial use.** Full details for every model and library are in

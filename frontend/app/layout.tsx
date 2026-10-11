@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Montserrat, Share_Tech_Mono } from "next/font/google";
 import { ViewTransitionErrorSuppressor } from "@/components/ViewTransitionErrorSuppressor";
+import { SessionPresence } from "@/components/SessionPresence";
 import { SettingsStatusProvider } from "@/context/SettingsStatusContext";
 
 // 1. Define Montserrat
@@ -36,6 +37,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col font-sans" suppressHydrationWarning={true}>
         <ViewTransitionErrorSuppressor />
+        <SessionPresence />
         <SettingsStatusProvider>{children}</SettingsStatusProvider>
       </body>
     </html>
