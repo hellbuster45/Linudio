@@ -63,13 +63,13 @@ def check_system() -> dict:
             "name": "Japanese dictionary for text-to-speech (unidic)",
             "ok": japanese_dictionary_ready(),
             "optional": False,
-            "hint": "Run `python -m unidic download` (about 0.8 GB). Without it, dubbing fails to start.",
+            "hint": "Set Up in Settings will download it (about 0.8 GB), or run `python -m unidic download`.",
         },
         {
             "name": "English text-to-speech data (nltk)",
             "ok": english_speech_data_ready(),
             "optional": False,
-            "hint": "Run `python install.py` again, or `python -m nltk.downloader -d ../models/nltk_data averaged_perceptron_tagger_eng cmudict`.",
+            "hint": "Set Up in Settings will download it, or run `python install.py` again.",
         },
         {
             "name": "Korean text-to-speech tokenizer",

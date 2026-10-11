@@ -13,3 +13,6 @@ class SetupRequest(BaseModel):
     device: str  # "cpu", "cuda", or "auto"
     whisper_model: str
     nllb_model: str
+    # MeloTTS language codes of the dubbing voices to download now ("EN", "ES", ...).
+    # Omit for all of them. A voice left out is downloaded the first time it is used.
+    voices: list[str] | None = None

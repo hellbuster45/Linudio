@@ -1,8 +1,20 @@
+import asyncio
+import os
+import subprocess
+import sys
+
 import torch
 from core.config import settings
-from core.progress import status as _status, set_status as _set_status, install_download_progress_hook
+from core.preflight import NLTK_RESOURCES, english_speech_data_ready, japanese_dictionary_ready, korean_tokenizer_ready
+from core.progress import (
+    status as _status,
+    set_status as _set_status,
+    set_download_progress,
+    install_download_progress_hook,
+)
 from ..stt import services as stt_services
 from ..text_translation import services as translation_services
+from ..tts import services as tts_services
 
 VALID_DEVICES = {"cpu", "cuda", "auto"}
 VALID_WHISPER_MODELS = {"tiny", "small", "medium", "large-v3", "large-v3-turbo"}
@@ -12,14 +24,19 @@ VALID_NLLB_MODELS = {
     "facebook/nllb-200-3.3B",
 }
 
+# Voices are offered in this order (MeloTTS language codes).
+VALID_VOICES = list(tts_services.VOICE_LABELS)
+
+# Set once the whole first-time setup has finished. Nothing auto-loads on startup, so the
+# frontend uses is_ready() to decide between showing the setup flow and the app.
+_setup_complete = False
+
 def get_status():
     return dict(_status)
 
 def is_ready() -> bool:
-    """True once both models have been loaded at least once (via setup_models
-    or the individual set_* functions). Nothing auto-loads on startup, so the
-    frontend uses this to know whether to show the setup flow or the app."""
-    return stt_services.model is not None and translation_services.model is not None
+    """True once first-time setup has finished and both models are loaded."""
+    return _setup_complete and stt_services.model is not None and translation_services.model is not None
 
 def get_device_info():
     return {
@@ -57,33 +74,106 @@ def validate_nllb_model(model_name: str):
         return f"Invalid NLLB model '{model_name}'. Must be one of {sorted(VALID_NLLB_MODELS)}"
     return None
 
-def validate_setup(device: str, whisper_model: str, nllb_model: str):
+def validate_setup(device: str, whisper_model: str, nllb_model: str, voices: list[str] | None = None):
+    unknown = [v for v in (voices or []) if v not in VALID_VOICES]
     return (
         validate_device(device)
         or validate_whisper_model(whisper_model)
         or validate_nllb_model(nllb_model)
+        or (f"Unknown voice(s) {unknown}. Must be from {VALID_VOICES}" if unknown else None)
     )
 
-def setup_models(device: str, whisper_model: str, nllb_model: str):
-    """Initial setup: loads both models for the first time with the user's
-    chosen device/sizes, instead of silently downloading whatever defaults
-    core/config.py happens to have."""
+def resolve_voices(requested: list[str] | None, korean_available: bool) -> list[str]:
+    """The voices to prepare: the requested ones (all of them by default), in the standard order.
+    Korean is left out when its tokenizer is not installed, since it could only fail."""
+    wanted = VALID_VOICES if requested is None else [v for v in VALID_VOICES if v in requested]
+    return [v for v in wanted if v != "KR" or korean_available]
+
+def plan_setup_steps(whisper_model: str, nllb_model: str, voices: list[str],
+                     dictionary_missing: bool, english_data_missing: bool) -> list[tuple[str, str]]:
+    """The ordered (key, label) steps of first-time setup. The dictionary and language data come
+    first because loading any voice needs them."""
+    steps: list[tuple[str, str]] = []
+    if dictionary_missing:
+        steps.append(("dictionary", "Japanese dictionary (about 0.8 GB)"))
+    if english_data_missing and "EN" in voices:
+        steps.append(("english_data", "English language data"))
+    steps.append(("whisper", f"Transcription model: {whisper_model}"))
+    steps.append(("nllb", f"Translation model: {nllb_model}"))
+    steps.append(("separator", "Voice separation model"))
+    for voice in voices:
+        steps.append((f"voice:{voice}", f"Voice: {tts_services.VOICE_LABELS[voice]}"))
+    return steps
+
+def _download_unidic() -> None:
+    result = subprocess.run([sys.executable, "-m", "unidic", "download"], capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not download the Japanese dictionary: {(result.stderr or result.stdout)[-500:]}")
+
+def _download_english_data() -> None:
+    import nltk
+    for resource in NLTK_RESOURCES:
+        if not nltk.download(resource, download_dir=os.environ.get("NLTK_DATA"), quiet=True):
+            raise RuntimeError(f"Could not download the English language data ({resource}).")
+
+async def setup_models(device: str, whisper_model: str, nllb_model: str, voices: list[str] | None = None):
+    """First-time setup, all in one go: the dictionary and language data MeloTTS needs, both AI
+    models, the voice separation model and the dubbing voices. Everything is downloaded and
+    checked now, so the first real job does not stall on hidden downloads."""
+    global _setup_complete
+    _setup_complete = False
     install_download_progress_hook()
     settings.DEVICE = device
     settings.WHISPER_MODEL = whisper_model
     settings.NLLB_MODEL = nllb_model
     resolved = _resolve_device(device)
 
-    try:
-        _set_status("loading", target=f"Transcription model: {whisper_model}")
-        stt_services.load_model(resolved, whisper_model)
+    voices = resolve_voices(voices, korean_tokenizer_ready())
+    steps = plan_setup_steps(
+        whisper_model, nllb_model, voices,
+        dictionary_missing=not japanese_dictionary_ready(),
+        english_data_missing=not english_speech_data_ready(),
+    )
+    step_number = {key: i + 1 for i, (key, _) in enumerate(steps)}
+    label = dict(steps)
 
-        _set_status("loading", target=f"Translation model: {nllb_model}")
-        translation_services.load_model(resolved, nllb_model)
+    def begin(key: str):
+        _set_status("loading", target=label[key], step=step_number[key], total_steps=len(steps))
+
+    def on_worker_event(event: dict):
+        if event["event"] == "voice":
+            begin(f"voice:{event['lang']}")
+        elif event["event"] == "progress":
+            set_download_progress(event["downloaded"], event["total"])
+
+    try:
+        for key, _ in steps:
+            if key.startswith("voice:"):
+                continue  # handled together below, in a single pass through the TTS worker
+            begin(key)
+            if key == "dictionary":
+                await asyncio.to_thread(_download_unidic)
+            elif key == "english_data":
+                await asyncio.to_thread(_download_english_data)
+            elif key == "whisper":
+                await asyncio.to_thread(stt_services.load_model, resolved, whisper_model)
+            elif key == "nllb":
+                await asyncio.to_thread(translation_services.load_model, resolved, nllb_model)
+            elif key == "separator":
+                await asyncio.to_thread(tts_services.download_separator_model)
+
+        if voices:
+            begin(f"voice:{voices[0]}")
+            ok, error = await tts_services.prepare_voices(voices, resolved, on_worker_event)
+            if not ok:
+                _set_status("error", error=f"Failed to prepare the dubbing voices: {error}")
+                return
     except Exception as e:
-        _set_status("error", error=f"Failed to set up models: {str(e)}")
+        _set_status("error", error=f"Failed to set up: {str(e)}")
         return
 
+    _setup_complete = True
     _set_status("ready")
 
 def set_device(requested_device: str):

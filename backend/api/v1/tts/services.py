@@ -1,4 +1,4 @@
-import os, sys, asyncio, shutil, traceback, time, json
+import os, sys, asyncio, shutil, subprocess, traceback, time, json
 from sqlalchemy.exc import SQLAlchemyError
 from core.config import settings
 from core.proc import run_command
@@ -8,6 +8,14 @@ NLLB_TO_MELO = {
     "eng_Latn": "EN", "spa_Latn": "ES", "fra_Latn": "FR",
     "zho_Hans": "ZH", "jpn_Jpan": "JP", "kor_Hang": "KR"
 }
+
+# The dubbing voices, in the order they are offered. Codes are MeloTTS' language names.
+VOICE_LABELS = {
+    "EN": "English", "ES": "Spanish", "FR": "French",
+    "ZH": "Chinese", "JP": "Japanese", "KR": "Korean",
+}
+
+SEPARATOR_MODEL = "Kim_Vocal_2.onnx"
 
 # --- Persistent TTS worker ---
 # tts_worker.py's torch/melo import takes ~20s; spawning a fresh subprocess per dub job
@@ -38,8 +46,32 @@ async def _drain_stderr(process):
             break
         print(f"      [TTS-WORKER] {line.decode(errors='replace').rstrip()}")
 
-async def run_tts_job(batch_file: str, lang: str, output_dir: str, device: str) -> bool:
-    """Sends one TTS job to the persistent worker, restarting it first if it's dead. Returns True on success."""
+async def _read_result(stdout, on_event=None):
+    """Reads lines from the worker until its result line, passing progress events to `on_event`.
+    Returns the result dict, or None if the worker's output ended (it crashed). Lines that are
+    not JSON objects (stray prints from libraries) are logged and skipped."""
+    while True:
+        line = await stdout.readline()
+        if not line:
+            return None
+        text = line.decode("utf-8", errors="replace").strip()
+        try:
+            message = json.loads(text)
+        except json.JSONDecodeError:
+            message = None
+        if not isinstance(message, dict):
+            if text:
+                print(f"      [TTS-WORKER] (unexpected output) {text[:200]}")
+            continue
+        if "event" in message:
+            if on_event:
+                on_event(message)
+            continue
+        return message
+
+async def _send_job(job: dict, on_event=None) -> tuple[bool, str | None]:
+    """Sends one job to the persistent worker (restarting it first if it's dead) and waits for the
+    result. Returns (succeeded, error message)."""
     global _worker_process
 
     async with _worker_lock:
@@ -47,30 +79,46 @@ async def run_tts_job(batch_file: str, lang: str, output_dir: str, device: str) 
             print("[TTS-WORKER] Starting persistent worker process...")
             await _start_worker()
 
-        job = json.dumps({
-            "batch_file": batch_file,
-            "lang": lang,
-            "output_dir": output_dir,
-            "device": device,
-        })
-
         try:
-            _worker_process.stdin.write((job + "\n").encode("utf-8"))
+            _worker_process.stdin.write((json.dumps(job) + "\n").encode("utf-8"))
             await _worker_process.stdin.drain()
 
-            response_line = await _worker_process.stdout.readline()
-            if not response_line:
+            result = await _read_result(_worker_process.stdout, on_event)
+            if result is None:
                 print("[TTS-WORKER] Worker closed its stdout unexpectedly (likely crashed).")
-                return False
+                return False, "The speech worker stopped unexpectedly."
 
-            result = json.loads(response_line.decode("utf-8"))
             if result.get("status") != "ok":
                 print(f"[TTS-WORKER] Job failed:\n{result.get('message')}")
-                return False
-            return True
+                return False, result.get("message") or "The speech worker reported an error."
+            return True, None
         except (BrokenPipeError, ConnectionResetError):
             print("[TTS-WORKER] Worker pipe broke (likely crashed). It will be restarted on the next job.")
-            return False
+            return False, "The speech worker stopped unexpectedly."
+
+async def run_tts_job(batch_file: str, lang: str, output_dir: str, device: str) -> bool:
+    """Sends one TTS job to the persistent worker. Returns True on success."""
+    ok, _ = await _send_job({
+        "batch_file": batch_file,
+        "lang": lang,
+        "output_dir": output_dir,
+        "device": device,
+    })
+    return ok
+
+async def prepare_voices(langs: list[str], device: str, on_event=None) -> tuple[bool, str | None]:
+    """Downloads and warms up the given voices so the first dub doesn't have to."""
+    return await _send_job({"op": "prepare", "langs": langs, "device": device}, on_event)
+
+def download_separator_model() -> None:
+    """Downloads the voice-separation model now, instead of during the first dub."""
+    result = subprocess.run(
+        [sys.executable, "-c", "from audio_separator.utils.cli import main; main()",
+         "--download_model_only", "--model_filename", SEPARATOR_MODEL],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not download the voice separation model:\n{(result.stderr or result.stdout)[-800:]}")
 
 def update_status(video_id: str, progress_state: str, db):
     try:
@@ -181,7 +229,7 @@ async def separate_audio(video_id, video_dir):
     sep_cmd = [
         sys.executable, "-c", "from audio_separator.utils.cli import main; main()",
         input_audio,
-        "--model_filename", "Kim_Vocal_2.onnx",
+        "--model_filename", SEPARATOR_MODEL,
         "--output_dir", video_dir,
         "--output_format", "WAV",
         "--normalization", "0.9",

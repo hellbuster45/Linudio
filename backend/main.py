@@ -25,6 +25,7 @@ from api.v1.text_translation.routes import router as translate_router
 from api.v1.videos.routes import router as video_router
 from api.v1.tts.routes import router as tts_router
 from api.v1.settings.routes import router as settings_router
+from api.v1.session.routes import router as session_router
 
 if sys.platform == 'win32':
     # This must happen BEFORE any other asyncio calls
@@ -51,6 +52,7 @@ app.include_router(synthesize_router)
 app.include_router(translate_router)
 app.include_router(tts_router)
 app.include_router(settings_router)
+app.include_router(session_router)
 
 settings.videos_dir.mkdir(parents=True, exist_ok=True)  # StaticFiles refuses to mount a missing directory
 app.mount("/storage", StaticFiles(directory=settings.videos_dir), name="videos")

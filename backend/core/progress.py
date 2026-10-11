@@ -11,21 +11,40 @@ from functools import lru_cache
 status = {
     "stage": "idle",       # "idle" | "loading" | "ready" | "error"
     "target": None,        # human-readable description of what's being loaded
+    "step": None,          # which step of a multi-step setup this is (1-based)...
+    "total_steps": None,   # ...out of how many
     "bytes_downloaded": None,
     "bytes_total": None,
     "error": None,
 }
 
-def set_status(stage: str, target: str = None, error: str = None):
+# Called with (downloaded, total) on every download update, in addition to updating `status`.
+# The TTS worker process uses this to forward its downloads to the server over stdout.
+_progress_sink = None
+
+def set_progress_sink(sink) -> None:
+    global _progress_sink
+    _progress_sink = sink
+
+def set_status(stage: str, target: str = None, error: str = None, step: int = None, total_steps: int = None):
     status["stage"] = stage
     status["target"] = target
+    status["step"] = step
+    status["total_steps"] = total_steps
     status["error"] = error
     status["bytes_downloaded"] = None
     status["bytes_total"] = None
 
+def set_download_progress(downloaded: int, total: int | None):
+    """Records download progress reported by another process (the TTS worker)."""
+    status["bytes_downloaded"] = downloaded
+    status["bytes_total"] = total
+
 def _set_progress(downloaded: int, total: int | None):
     status["bytes_downloaded"] = downloaded
     status["bytes_total"] = total
+    if _progress_sink is not None:
+        _progress_sink(downloaded, total)
 
 @lru_cache
 def install_download_progress_hook():
