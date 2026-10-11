@@ -17,7 +17,9 @@ if not exist "node_modules" (
 )
 if not exist "frontend\node_modules" (
     echo Installing frontend packages...
-    call npm install --prefix frontend || goto :fail
+    pushd frontend
+    call npm install || goto :fail
+    popd
 )
 
 rem Open the browser as soon as both servers answer. This runs in the background.
