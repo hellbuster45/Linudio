@@ -238,8 +238,8 @@ CI runs all of this on every push; see `.github/workflows/ci.yml`.
 
 ## License
 
-Linudio is a small personal project and has no license file, so all rights are reserved by default.
-If you'd like to use or build on it, open an issue and ask.
+Linudio's code is MIT licensed — see [`LICENSE`](LICENSE). In short: use it, modify it, or build
+on it, commercial or not, as long as you keep the copyright notice.
 
 **The AI models have their own licenses, and one matters a lot:** the NLLB translation models are
 **CC-BY-NC-4.0, which forbids commercial use.** Full details for every model and library are in
