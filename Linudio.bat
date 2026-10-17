@@ -3,9 +3,38 @@ setlocal
 cd /d "%~dp0"
 title Linudio
 
-rem Use the project's virtual environment if there is one (backend\venv or backend\.venv).
-if exist "backend\venv\Scripts\activate.bat" call "backend\venv\Scripts\activate.bat"
-if exist "backend\.venv\Scripts\activate.bat" call "backend\.venv\Scripts\activate.bat"
+rem Install anything missing (python, node, git, ffmpeg) via winget, then get the backend's own
+rem virtual environment and dependencies set up the first time this runs. The one thing this does
+rem NOT do is choose or download AI models - that stays a manual choice in the Settings panel.
+where python >nul 2>&1 || call :install_tool Python.Python.3.12
+where node >nul 2>&1 || call :install_tool OpenJS.NodeJS.LTS
+where git >nul 2>&1 || call :install_tool Git.Git
+where ffmpeg >nul 2>&1 || call :install_tool Gyan.FFmpeg
+rem A PATH change from a winget install just now would not be visible in this window yet.
+if defined LINUDIO_JUST_INSTALLED (
+    echo.
+    echo Finished installing. Re-launching so the new PATH takes effect...
+    start "" "%~f0"
+    exit /b 0
+)
+
+rem Use the project's virtual environment if there is one (backend\venv or backend\.venv), else
+rem create one and install the backend.
+set VENV=backend\venv
+if exist "backend\.venv\Scripts\activate.bat" set VENV=backend\.venv
+if not exist "%VENV%\Scripts\activate.bat" (
+    echo Setting up the Python virtual environment...
+    python -m venv "%VENV%" || goto :fail
+)
+call "%VENV%\Scripts\activate.bat"
+
+python -c "import fastapi" >nul 2>&1
+if errorlevel 1 (
+    echo Installing backend dependencies ^(this downloads several GB and can take a while^)...
+    pushd backend
+    python install.py || (popd & goto :fail)
+    popd
+)
 
 rem Close anything left over from a previous run (the API on 8000, the web UI on 3000).
 call :free_ports
@@ -43,4 +72,10 @@ exit /b 1
 
 :free_ports
 powershell -NoProfile -Command "foreach($p in 8000,3000){ Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | ForEach-Object { taskkill /PID $_.OwningProcess /T /F | Out-Null } }"
+exit /b 0
+
+:install_tool
+echo Installing %~1...
+winget install --id %~1 -e --accept-source-agreements --accept-package-agreements || goto :fail
+set LINUDIO_JUST_INSTALLED=1
 exit /b 0
